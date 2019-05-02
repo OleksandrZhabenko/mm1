@@ -22,6 +22,8 @@ SOFTWARE.
 import Text.Replace 
 import System.CPUTime
 import System.Process (callCommand)
+import System.Directory (findExecutable)
+import System.Info (os)
 
 data Language a = Polish a | Esperanto a
    deriving (Eq,Ord,Show)
@@ -220,12 +222,21 @@ change3 x | x == 'ж' = "ż"
 nI :: String -> [Language String]
 nI line = concatSameL3 $ polishChecker $ words2 line 
 
-
 createLine :: IO Integer -> Language String -> IO String
 createLine time line = do
                 t <- time
                 let t1 = 10000000000 + (t `div` 10000000) in
-                  return ("espeak -v " ++ (if (isEsperanto line) then "esperanto -w " else "polish -w ") ++ (show t1) ++ ".wav -z " ++ (getThrough line) ) 
+                  if (os == "Windows") 
+                    then do 
+                           x <- findExecutable "espeak.exe"
+                           if (x /= Nothing)
+                              then return ("espeak.exe -v " ++ (if (isEsperanto line) then "esperanto -w " else "polish -w ") ++ (show t1) ++ ".wav -z " ++ (getThrough line) ) 
+                              else error "Please, install eSpeak executable  espeak.exe into the directory mentioned in the variable PATH!\n"
+                    else do 
+                           x <- findExecutable "espeak"
+                           if (x /= Nothing)
+                              then return ("espeak -v " ++ (if (isEsperanto line) then "esperanto -w " else "polish -w ") ++ (show t1) ++ ".wav -z " ++ (getThrough line) ) 
+                              else error "Please, install eSpeak executable  espeak into the directory mentioned in the variable PATH!\n"
 
 doCreation xs = mapM_ (>>= callCommand) (fmap (createLine getCPUTime) xs)
 
