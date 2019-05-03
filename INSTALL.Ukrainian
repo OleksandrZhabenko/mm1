@@ -32,12 +32,10 @@ strip --strip-unneeded mm1
 
 2. З використанням cabal
 
-2. With cabal
-
 Альтернативний спосіб встановлення -- це використати cabal.
 Для цього виконайте в терміналі в папці з кодом програми
 
-cabal configure
+cabal configure --enable-executable-dynamic -O2 --enable-executable-stripping
 cabal build
 
 (Для користувачів Windows):
