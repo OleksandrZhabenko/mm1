@@ -37,7 +37,7 @@ Copy the file mm1 (respectively mm1.exe) you got into the directory where you ha
 The alternative way for installation is to use cabal.
 So, run in the terminal in the directory of the source code
 
-cabal configure
+cabal configure --enable-executable-dynamic -O2 --enable-executable-stripping
 cabal build
 
 (For Windows users):
