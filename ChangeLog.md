@@ -7,3 +7,8 @@
 ## 0.1.1.0  -- 2019-05-03
 
 * Second version. Imroved some details in the program. Added parallel Ukrainian and English versions to the files.
+
+
+## 0.1.1.1  -- 2019-05-03
+
+* Second version. Some minor changes to files.
