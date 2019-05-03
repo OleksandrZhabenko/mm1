@@ -12,3 +12,7 @@
 ## 0.1.1.1  -- 2019-05-03
 
 * Second version. Some minor changes to files.
+
+## 0.1.1.2  -- 2019-05-03
+
+* Second version. Some minor changes to files.
