@@ -1,49 +1,67 @@
-Передумови встановлення
+Prerequisites
 
-Встановлені програми GHC, cabal, espeak.
-Бажано також встановити програму sox (для створення кращого звучання, але то необов'язково).
-Потрібно також завчасно встановити бібліотеки system-info, system-directory і text-replace. Для цього можна виконати команду в терміналі 
+They are installed programs GHC, cabal and espeak.
+It is recommended also to install a program sox (for production of the better sounding but it is not necessary).
+It is needed also firstly to install libraries system-info, system-directory and text-replace. You can run in the terminal for this:
 
 cabal update
 cabal install system-info
 cabal install system-directory
 cabal install text-replace
 
-Для користувачів Windows
+For Windows Users
 
-Потрібно у всіх командах у файлі, який зараз читаєте, додати до першого слова суфікс .exe
-Крім того, потрібно переконатися, що всі ці програми видимі для виконання в терміналі (папки, де знаходяться ці файли .exe ), іншими словами папки входять до змінної PATH.
+You need for all commands in the file you are reading now to append to the first word a suffix .exe
+Moreover, you need to check that all these programs are visible for execution in the terminal (e.g. on the command line) (directories where all these .exe files are located). 
+In other words, these directories are included into the environment variable PATH.
 
-Встановлення
+Installation
 
-Скопіюйте файли у папку, в якій маєте права на запис та виконання. Виконайте команду в терміналі 
+1. Without cabal usage
+
+Copy the files into the directory where you have permissions to write and execute files. Then run in the terminal
 
 ghc -O2 -Wall -dynamic UkrainianSpeech.hs -o mm1
 
-(Для користувачів Windows): 
+(For Windows users):
+
 ghc.exe -O2 -Wall -dynamic UkrainianSpeech.hs -o mm1.exe
 
-(+ Для користувачів Unix): 
+(+ For Unices users): 
 strip --strip-unneeded mm1
 
-Скопіюйте отриманий файл mm1 (відповідно mm1.exe) у папку, в якій маєте права на запис, виконання, і вміст якої входить у змінну PATH.
+Copy the file mm1 (respectively mm1.exe) you got into the directory where you have permissions to write, execute and besides which is in the environment variable PATH.
 
-Використання
+2. With cabal
 
-Запустіть програму в терміналі, набравши 
+The alternative way for installation is to use cabal.
+So, run in the terminal in the directory of the source code
+
+cabal configure
+cabal build
+
+(For Windows users):
+
+cabal.exe configure
+cabal.exe build
+
+Usage
+
+Run the program in the terminal typing
 
 mm1
 
-(Для користувачів Windows): 
-mm1.exe
+(For Windows users):
 
-і введіть рядок тексту українською мовою. Натисніть Enter. Ви маєте бути в папці, в якій у Вас є права на читання і запис.
+mm1.exe 
 
-Для створення кращого звучання синтезованих файлів рекомендую використати команди (наводяться для терміналу UNIX bash):
+and enter a string of Ukrainian text. Press Enter. You must be in the directory where you have permissions to read and write.
+
+For production of the better sounding of the synthesized files it is recommended to use the following commands (for the Unix shell bash):
 
 sox `ls | grep wav` speech.flac rate -m 44100 bandpass 360 10 bandreject 300 10 gain 10 channels 2 earwax gain 7 dither -S
 play speech.flac 
 
-(Для користувачів Windows):
+(For Windows users):
 sox.exe *.wav speech.flac rate -m 44100 bandpass 360 10 bandreject 300 10 gain 10 channels 2 earwax gain 7 dither -S
 play.exe speech.flac 

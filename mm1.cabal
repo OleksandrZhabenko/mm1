@@ -13,7 +13,7 @@ maintainer:          olexandr543@yahoo.com
 -- copyright:           
 category:            Language
 build-type:          Simple
-extra-source-files:  ChangeLog.md INSTALL THANKS README.md
+extra-source-files:  ChangeLog.md INSTALL THANKS README.md INSTALL.Ukrainian
 cabal-version:       >=1.10
 
 executable mm1

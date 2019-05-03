@@ -1,0 +1,66 @@
+Передумови встановлення
+
+Встановлені програми GHC, cabal, espeak.
+Бажано також встановити програму sox (для створення кращого звучання, але то необов'язково).
+Потрібно також завчасно встановити бібліотеки system-info, system-directory і text-replace. Для цього можна виконати команду в терміналі 
+
+cabal update
+cabal install system-info
+cabal install system-directory
+cabal install text-replace
+
+Для користувачів Windows
+
+Потрібно у всіх командах у файлі, який зараз читаєте, додати до першого слова суфікс .exe
+Крім того, потрібно переконатися, що всі ці програми видимі для виконання в терміналі (папки, де знаходяться ці файли .exe ), іншими словами папки входять до змінної PATH.
+
+Встановлення
+
+1. Без використання cabal
+
+Скопіюйте файли у папку, в якій маєте права на запис та виконання. Виконайте команду в терміналі 
+
+ghc -O2 -Wall -dynamic UkrainianSpeech.hs -o mm1
+
+(Для користувачів Windows): 
+ghc.exe -O2 -Wall -dynamic UkrainianSpeech.hs -o mm1.exe
+
+(+ Для користувачів Unix): 
+strip --strip-unneeded mm1
+
+Скопіюйте отриманий файл mm1 (відповідно mm1.exe) у папку, в якій маєте права на запис, виконання, і вміст якої входить у змінну PATH.
+
+2. З використанням cabal
+
+2. With cabal
+
+Альтернативний спосіб встановлення -- це використати cabal.
+Для цього виконайте в терміналі в папці з кодом програми
+
+cabal configure
+cabal build
+
+(Для користувачів Windows):
+
+cabal.exe configure
+cabal.exe build
+
+Використання
+
+Запустіть програму в терміналі, набравши 
+
+mm1
+
+(Для користувачів Windows): 
+mm1.exe
+
+і введіть рядок тексту українською мовою. Натисніть Enter. Ви маєте бути в папці, в якій у Вас є права на читання і запис.
+
+Для створення кращого звучання синтезованих файлів рекомендую використати команди (наводяться для терміналу UNIX bash):
+
+sox `ls | grep wav` speech.flac rate -m 44100 bandpass 360 10 bandreject 300 10 gain 10 channels 2 earwax gain 7 dither -S
+play speech.flac 
+
+(Для користувачів Windows):
+sox.exe *.wav speech.flac rate -m 44100 bandpass 360 10 bandreject 300 10 gain 10 channels 2 earwax gain 7 dither -S
+play.exe speech.flac 
