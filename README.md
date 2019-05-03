@@ -1,2 +1,5 @@
 # mm1
-Program that reads Ukrainian text using eSpeak.
+
+Програма, що читає український текст, використовуючи eSpeak.
+
+(English): (Program that reads Ukrainian text using eSpeak.
