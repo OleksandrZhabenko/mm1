@@ -1,7 +1,6 @@
 Prerequisites
 
-They are installed programs GHC, cabal and espeak.
-It is recommended also to install a program sox (for production of the better sounding but it is not necessary).
+They are installed programs GHC, cabal, eSpeak and SoX.
 It is needed also firstly to install libraries system-info, system-directory and text-replace. You can run in the terminal for this:
 
 cabal update
