@@ -3,7 +3,7 @@
 
 name:                mm1
 version:             0.2.1.0
-synopsis:            Program that reads Ukrainian text using eSpeak.
+synopsis:            Program that reads Ukrainian text using eSpeak and SoX.
 -- description:         
 homepage:            https://github.com/OleksandrZhabenko/mm1
 license:             MIT
