@@ -21,6 +21,6 @@
 
 * Third version. Program is rewritten so that now it uses also SoX. As a basic unit, now the syllable.is used, not a word as earlier.
 
-## 0.2.1.0  -- 2019-06-11
+## 0.2.1.0  -- 2019-06-12
 
 * Third revised version. Fixed an issue with the letters 'я', 'ю' and 'є'.
