@@ -16,3 +16,7 @@
 ## 0.1.1.2  -- 2019-05-03
 
 * Second version. Some minor changes to files.
+
+## 0.2.0.0  -- 2019-06-11
+
+* Third version. Program is rewritten so that now it uses also SoX. As a basic unit, now the syllable.is used, not a word as earlier.
