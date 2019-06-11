@@ -73,7 +73,7 @@ ukrainianJotted1 [x] = [x]
 -- Function to convert Ukrainian "я", "ю", "є" and "ї" into some other String for syllables processing
 -- Функція для перетворення українських "я", "ю", "є" та "ї" на деякі інші рядки для обробки складів
 ukrainianJottedLast :: String -> String
-ukrainianJottedLast xs = replaceWithList [Replace (string'fromString "я") "ьа", Replace (string'fromString "ю") "ьу", Replace (string'fromString "є") "ье", Replace (string'fromString "ї") "йі"] xs
+ukrainianJottedLast xs = replaceWithList [Replace (string'fromString "я") "йа", Replace (string'fromString "ю") "йу", Replace (string'fromString "є") "йе", Replace (string'fromString "ї") "йі"] xs
 
 -- Function that append the wrong sounding separate one-letter words to the next word to obtain more proper sounding
 -- Функція, що додає неправильно озвучувані однолітерні слова до наступного слова, щоб отримати більш правильне озвучування
