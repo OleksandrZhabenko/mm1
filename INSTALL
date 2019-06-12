@@ -58,9 +58,19 @@ and enter a string of Ukrainian text. Press Enter. You must be in the directory 
 
 For production of the better sounding of the synthesized files it is recommended to use the following commands (for the Unix shell bash):
 
-sox `ls | grep wav` speech.flac rate -m 44100 bandpass 360 10 bandreject 300 10 gain 10 channels 2 earwax gain 7 dither -S
+sox 1*.wav speech.flac rate -m 44100 bandpass 360 10 bandreject 300 10 gain 10 channels 2 earwax gain 7 dither -S
+play speech.flac 
+
+If you would like to have some fun, you can enter not the previous two commands, but the following ones:
+
+sox *.wav speech.flac rate -m 44100 bandpass 360 10 bandreject 300 10 gain 10 channels 2 earwax gain 7 dither -S
 play speech.flac 
 
 (For Windows users):
+sox.exe 1*.wav speech.flac rate -m 44100 bandpass 360 10 bandreject 300 10 gain 10 channels 2 earwax gain 7 dither -S
+play.exe speech.flac 
+
+If you would like to have some fun, you can enter not the previous two commands, but the following ones:
+
 sox.exe *.wav speech.flac rate -m 44100 bandpass 360 10 bandreject 300 10 gain 10 channels 2 earwax gain 7 dither -S
 play.exe speech.flac 
