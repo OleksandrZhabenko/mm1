@@ -24,3 +24,7 @@
 ## 0.2.1.0  -- 2019-06-12
 
 * Third revised version. Fixed an issue with the letters 'я', 'ю' and 'є'.
+
+## 0.2.1.1  -- 2019-06-12
+
+* Third again revised version. Fixed an issue with the letters 'я', 'ю' and 'є'.
