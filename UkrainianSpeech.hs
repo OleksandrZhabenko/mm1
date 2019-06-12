@@ -41,7 +41,6 @@ isEsperanto :: Language a -> Bool
 isEsperanto (Esperanto _) = True
 isEsperanto _ = False
 
-
 -- Function that primarily converts Ukrainian line into more sounds-based line
 -- Функція, що початково перетворює український рядок на більш орінтований на звуки рядок
 ukrainianToMoreSounding :: String -> String
@@ -73,7 +72,7 @@ ukrainianJotted1 [x] = [x]
 -- Function to convert Ukrainian "я", "ю", "є" and "ї" into some other String for syllables processing
 -- Функція для перетворення українських "я", "ю", "є" та "ї" на деякі інші рядки для обробки складів
 ukrainianJottedLast :: String -> String
-ukrainianJottedLast xs = replaceWithList [Replace (string'fromString "я") "йа", Replace (string'fromString "ю") "йу", Replace (string'fromString "є") "йе", Replace (string'fromString "ї") "йі"] xs
+ukrainianJottedLast xs = replaceWithList [Replace (string'fromString "я") "ьа", Replace (string'fromString "ю") "ьу", Replace (string'fromString "є") "ье", Replace (string'fromString "ї") "йі"] xs
 
 -- Function that append the wrong sounding separate one-letter words to the next word to obtain more proper sounding
 -- Функція, що додає неправильно озвучувані однолітерні слова до наступного слова, щоб отримати більш правильне озвучування
@@ -133,7 +132,6 @@ isDigit x = case x of
   '8' -> True
   '9' -> True
   _   -> False
-
 
 -- Function-predicate that checks whether its argument is neither a digit character nor a dash
 -- Функція-предикат, що перевіряє, чи її аргумент не є символом цифри чи дефісу
@@ -397,26 +395,6 @@ createSoundsForSyllable time ((xs, ys),(zs, k)) = case k of
 convertSyllableToLanguage ::  String ->  String
 convertSyllableToLanguage xs =  if elem 'и' xs || elem 'И' xs then changeToPolish xs else changeToEsperanto xs
 
--- Function that creates a pause between words using SoX executable
--- Функція, що створює паузи між словами
-createWordPause :: IO Integer -> IO ()
-createWordPause time = do
-  t <- time
-  let t1 = 10000000000 + (t `div` 10000000) in
-    if (os == "Windows")
-      then do 
-        y <- findExecutable "sox.exe"
-        if y /= Nothing
-          then do
-            return ("sox.exe --rate 22,1k -n " ++ (show t1) ++ ".wav  trim 0 0.06") >>= callCommand
-          else error "Please, install SoX executable sox.exe into the directory mentioned in the variable PATH!\n"
-      else do
-        y <- findExecutable "sox"
-        if y /= Nothing
-          then do
-            return ("sox --rate 22,1k -n " ++ (show t1) ++ ".wav  trim 0 0.06") >>= callCommand
-          else error "Please, install SoX executable sox into the directory mentioned in the variable PATH!\n"
-
 -- Function that converts a String with digits into an Integer
 -- Функція, що конвертує String з цифрами в Integer
 stringToInteger :: String -> Integer
@@ -439,13 +417,13 @@ stringToInteger xs = foldl1 ((+) . (*10)) $! (map (charToDigit) $ xs)
 -- Функція, що власне перетворює українське слово у Polish рядок для подальшого озвучування
 changeToPolish :: String -> String
 changeToPolish [] = []
-changeToPolish x = concatMap change3 ( replaceWithList [Replace (string'fromString "нь") "ń", Replace (string'fromString "сі") "sji", Replace (string'fromString "Сі") "Sji", Replace (string'fromString "Ці") "Cji", Replace (string'fromString "ці") "cji", Replace (string'fromString "цьцьа") "csja", Replace (string'fromString "рх") "rch", Replace (string'fromString "ьо") "jo", Replace (string'fromString "ьй") "jj", Replace (string'fromString "зі") "zji", Replace (string'fromString "Зі") "Zji"] x)
+changeToPolish x = concatMap change3 ( replaceWithList [Replace (string'fromString "нь") "ń", Replace (string'fromString "рх") "rch", Replace (string'fromString "ьй") "jj"] x)
 
 -- Function that actually converts a Ukrainian word to the Esperanto string for further reading
 -- Функція, що власне перетворює українське слово у Esperanto рядок для подальшого озвучування                        
 changeToEsperanto :: String -> String
 changeToEsperanto [] = []
-changeToEsperanto x = concatMap change2 ( replaceWithList [Replace (string'fromString "цьцьа") "csja", Replace (string'fromString "ьо") "jo", Replace (string'fromString "ьй") "jj"] x)
+changeToEsperanto x = concatMap change2 ( replaceWithList [Replace (string'fromString "цьцьа") "csja", Replace (string'fromString "ьо") "jo", Replace (string'fromString "ьй") "jj", Replace (string'fromString "ьа") "ja", Replace (string'fromString "ьу") "ju", Replace (string'fromString "ье") "je"] x)
 
 -- Function that converts a list of Ukrainian strings to the list of Language String data with respect to the rules of sounding
 -- Функція, що перетворює список українських рядків на список даних типу Language String з врахуванням правил озвучування
@@ -541,26 +519,6 @@ change3 x | x == 'ж' = "ż"
           | x == 'ь' = ""
           | x == 'ґ' = "g"
           | x == 'Ґ' = "G"
-          | x == 'я' = "ja"
-          | x == 'Я' = "Ja"
-          | x == 'є' = "je"
-          | x == 'Є' = "Je"
-          | x == 'ю' = "ju"
-          | x == 'Ю' = "Ju"
-          | x == 'ї' = "ji"
-          | x == 'Ї' = "Ji"
-          | x == 'а' = "a"
-          | x == 'А' = "A"
-          | x == 'о' = "o"
-          | x == 'О' = "O"
-          | x == 'е' = "e"
-          | x == 'Е' = "E"
-          | x == 'у' = "u"
-          | x == 'У' = "U"
-          | x == 'і' = "i"
-          | x == 'І' = "I"
-          | x == 'й' = "j"
-          | x == 'Й' = "J"
           | x == 'к' = "k"
           | x == 'К' = "K"
           | x == 'б' = "b"
