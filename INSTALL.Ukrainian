@@ -55,9 +55,19 @@ mm1.exe
 
 Для створення кращого звучання синтезованих файлів рекомендую використати команди (наводяться для терміналу UNIX bash):
 
-sox `ls | grep wav` speech.flac rate -m 44100 bandpass 360 10 bandreject 300 10 gain 10 channels 2 earwax gain 7 dither -S
+sox 1*.wav speech.flac rate -m 44100 bandpass 360 10 bandreject 300 10 gain 10 channels 2 earwax gain 7 dither -S
+play speech.flac 
+
+Якщо Ви бажаєте трохи усміхнутися, тоді замість попередніх двох команд можете ввести наступні:
+
+sox *.wav speech.flac rate -m 44100 bandpass 360 10 bandreject 300 10 gain 10 channels 2 earwax gain 7 dither -S
 play speech.flac 
 
 (Для користувачів Windows):
+sox.exe *.wav speech.flac rate -m 44100 bandpass 360 10 bandreject 300 10 gain 10 channels 2 earwax gain 7 dither -S
+play.exe speech.flac 
+
+Якщо Ви бажаєте трохи усміхнутися, тоді замість попередніх двох команд можете ввести наступні:
+
 sox.exe *.wav speech.flac rate -m 44100 bandpass 360 10 bandreject 300 10 gain 10 channels 2 earwax gain 7 dither -S
 play.exe speech.flac 
