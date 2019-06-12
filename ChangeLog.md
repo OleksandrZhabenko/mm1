@@ -28,3 +28,7 @@
 ## 0.2.1.1  -- 2019-06-12
 
 * Third again revised version. Fixed an issue with the letters 'я', 'ю' and 'є'.
+
+## 0.2.1.2  -- 2019-06-12
+
+* Third again revised C version. Fixed an issue with the INSTALL files.
