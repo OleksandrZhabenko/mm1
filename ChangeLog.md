@@ -32,3 +32,7 @@
 ## 0.2.1.2  -- 2019-06-12
 
 * Third again revised C version. Fixed an issue with the INSTALL files.
+
+## 0.2.2.0  -- 2019-06-18
+
+* Fourth alpha version. Fixed some issues with Polish and added some rules for assimilation.
