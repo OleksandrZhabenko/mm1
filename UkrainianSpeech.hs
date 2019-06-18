@@ -94,11 +94,29 @@ concatUkrainianZhOrB xs = zipWith togetherZh xs (mappend (tail xs) [" "])
                                       | (ys == "б") = ""
                                       | otherwise = ys
 
+-- Function that makes some assimilation changes for correct Ukrainian pronunciation
+-- Функція, що робить деякі асиміляційні зміни для правильної української вимови
+changeAssimilative :: String -> String
+changeAssimilative [] = []
+changeAssimilative xs = replaceWithList [Replace (string'fromString "нтськ") "ньськ", Replace (string'fromString "стськ") "сьськ", Replace (string'fromString "нтст") "нст", Replace (string'fromString "стць") "сьцьць", Replace (string'fromString "стч") "шч", Replace (string'fromString "стд") "зд", Replace (string'fromString "стс") "сс", Replace (string'fromString "ятдесят") "йадесьат"] xs
+
+-- Additional function to take into account assimilation rules that depend on the position in the word of the group of Ukrainian sounds
+-- Додаткова функція, щоб врахувати правила асиміляції, які залежать від положення у слові групи українських звуків
+assimilationFirst :: [String] -> [String]
+assimilationFirst [] = []
+assimilationFirst xs = map (\x -> if length x > 2
+                                    then if take 2 x == "зч" || take 2 x == "Зч"
+                                           then "шч" ++ drop 2 x
+                                           else if take 2 x == "зш" || take 2 x == "Зш"
+                                                  then "шш" ++ drop 2 x
+                                                  else x
+                                    else x) xs
+
 -- Function that produces the list of Ukrainian strings from the primary Ukrainian string which can be further easily processed
 -- Функція, яка створює список українських рядків з початкового українського рядка, які можуть бути легко оброблені далі
 words2 :: String -> [String]
 words2 [] = [""]
-words2 xs = concatUkrainian . concatUkrainianZhOrB . words . ukrainianJottedLast . ukrainianJotted2 . ukrainianJotted1 .  ukrainianToMoreSounding $ xs
+words2 xs = concatUkrainian . concatUkrainianZhOrB . assimilationFirst . words . ukrainianJottedLast . ukrainianJotted2 . ukrainianJotted1 .  changeAssimilative . ukrainianToMoreSounding $ xs
 
 -- Function-predicate that checks whether its argument is either a digit character or a dash
 -- Функція-предикат, що перевіряє, чи її аргумент є символом цифри чи дефісу
@@ -555,6 +573,8 @@ change3 x | x == 'ж' = "ż"
           | x == '-' = ""
           | x == 'и' = "y"
           | x == 'И' = "Y"
+          | x == 'й' = "j"
+          | x == 'Й' = "J"          
           | otherwise = [x]
 
 -- Function that checks the eSpeak and SoX executables existence and is used for soft sign sound creation
