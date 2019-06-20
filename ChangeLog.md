@@ -36,3 +36,8 @@
 ## 0.2.2.0  -- 2019-06-18
 
 * Fourth alpha version. Fixed some issues with Polish and added some rules for assimilation.
+
+## 0.2.3.0  -- 2019-06-18
+
+* Fourth version. Now the program uses both syllabies and sounds approach together. Added support for letter "г".
+
