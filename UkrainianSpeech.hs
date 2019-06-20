@@ -24,23 +24,6 @@ import System.Process (callCommand)
 import System.Directory (findExecutable)
 import System.Info (os)
 
--- A new type for presentation of the Ukrainian text for eSpeak in the form it can process directly
--- Новий тип даних для представлення українського тексту для eSpeak у формі, яку він може прямо обробляти
-data Language a = Polish a | Esperanto a
-   deriving (Eq,Ord,Show)
-
--- Function that 'extracts' inner value from the data type Language a
--- Функція, яка "витягує" вкладене значення у дані Language a
-getThrough :: Language a -> a
-getThrough (Polish x) = x
-getThrough (Esperanto x) = x
-
--- Function-predicate that checks whether a Language data is actually the Esperanto one
--- Функція-предикат, яка перевіряє, чи є дані типу Language власне Esperanto
-isEsperanto :: Language a -> Bool
-isEsperanto (Esperanto _) = True
-isEsperanto _ = False
-
 -- Function that primarily converts Ukrainian line into more sounds-based line
 -- Функція, що початково перетворює український рядок на більш орінтований на звуки рядок
 ukrainianToMoreSounding :: String -> String
@@ -104,19 +87,23 @@ changeAssimilative xs = replaceWithList [Replace (string'fromString "нтськ"
 -- Додаткова функція, щоб врахувати правила асиміляції, які залежать від положення у слові групи українських звуків
 assimilationFirst :: [String] -> [String]
 assimilationFirst [] = []
-assimilationFirst xs = map (\x -> if length x > 2
-                                    then if take 2 x == "зч" || take 2 x == "Зч"
-                                           then "шч" ++ drop 2 x
-                                           else if take 2 x == "зш" || take 2 x == "Зш"
-                                                  then "шш" ++ drop 2 x
-                                                  else x
-                                    else x) xs
+assimilationFirst xs = map (\x -> let z = dropWhile isDigitOrDash x in if take 2 z == "зч" || take 2 z == "Зч"
+                                           then takeWhile isDigitOrDash x ++ "шч" ++ drop 2 z
+                                           else if take 2 z == "зш" || take 2 z == "Зш"
+                                                  then takeWhile isDigitOrDash x ++ "шш" ++ drop 2 x
+                                                  else x) xs
+
+-- Function for special Ukrainian words where "г" sounds approximately as "х"
+-- Функція для спеціальних українських слів, де звук "г" звучить близько до "х"
+changeH2X :: String -> String
+changeH2X [] = []
+changeH2X xs = replaceWithList [Replace (string'fromString "вогк") "вохк", Replace (string'fromString "легк") "лехк", Replace (string'fromString "кігт") "кіхт", Replace (string'fromString "нігт") "ніхт", Replace (string'fromString "дігтяр") "діхтяр", Replace (string'fromString "Вогк") "вохк", Replace (string'fromString "Легк") "лехк", Replace (string'fromString "Кігт") "кіхт", Replace (string'fromString "Нігт") "ніхт", Replace (string'fromString "Дігтяр") "діхтяр"] xs
 
 -- Function that produces the list of Ukrainian strings from the primary Ukrainian string which can be further easily processed
 -- Функція, яка створює список українських рядків з початкового українського рядка, які можуть бути легко оброблені далі
 words2 :: String -> [String]
-words2 [] = [""]
-words2 xs = concatUkrainian . concatUkrainianZhOrB . assimilationFirst . words . ukrainianJottedLast . ukrainianJotted2 . ukrainianJotted1 .  changeAssimilative . ukrainianToMoreSounding $ xs
+words2 [] = []
+words2 xs = concatUkrainian . concatUkrainianZhOrB . assimilationFirst . words . ukrainianJottedLast . ukrainianJotted2 . ukrainianJotted1 .  changeAssimilative . ukrainianToMoreSounding . changeH2X $ xs
 
 -- Function-predicate that checks whether its argument is either a digit character or a dash
 -- Функція-предикат, що перевіряє, чи її аргумент є символом цифри чи дефісу
@@ -195,7 +182,7 @@ accountEmphasis y@(x:xs) = let z = toInteger . length . filter (isVowelL) $ y in
 -- Additional function that is used to divide a Ukrainian word into syllables
 -- Додаткова функція, що використовується, щоб поділити українське слово на склади
 createSoundGroups :: String -> [String]
-createSoundGroups [] = [[]]
+createSoundGroups [] = []
 createSoundGroups y@(x:xs) = if isVowelL x
   then [x]:(createSoundGroups xs)
   else let k = (takeWhile (not . isVowelL) $ y) in if k /= y
@@ -264,17 +251,6 @@ createSoundL [x] = if isVowelL x
            then [([x],'d')]
            else [([x],'s')]
 
--- Additional function-predicate to check whether its argument begins with a data of the type (String, Char) representing a consonant Ukrainian sound
--- Додаткова функція-предикат, що перевіряє, чи її аргумент починається з даних типу (String, Char), що представляють приголосний український звук
-beginsWithC :: [(String, Char)] -> Bool
-beginsWithC [] = False
-beginsWithC xs = if (snd (head xs) /= 'w') then True else False
-
--- Additional function to make possible application of the simple functions to divide into syllables the Ukrainian word
--- Додаткова функція, що робить можливим застосування простих функцій для поділу на склади українського слова
-endApplicationToListOfLists :: ([t] -> [a]) -> ([t] -> [[a]]) -> [[t]] -> Int -> [[a]]
-endApplicationToListOfLists g h [[a]] k = concat [[take (k-1) (concatMap g [[a]])],h $ head $ drop (k-1) [[a]],[drop k (concatMap g [[a]])]]
-
 -- Function that prepares a Ukrainian word to be divided into syllables
 -- Функція, що готує українське слово для поділу на склади
 prepareToSyllables :: String -> [[(String, Char)]]
@@ -296,13 +272,17 @@ divideToSyllables1 xs = concatMap divideConsonants (takeWhile (not . null) (prep
 
 -- Function that takes a Ukrainian String and converts it to the data of the type ((String, String), (String, Integer)) that is used for zero-vowel words
 -- Функція, що отримує на вхід український String і конвертує його на дані типу ((String, String), (String, Integer)), що використовується для слів без голосних
-zeroSyllablePart :: String ->  ((String, String), (String, Integer))
-zeroSyllablePart xs =  ((xs, "esperanto"), ("-g 0 -s 100 -z", toInteger 0))
+zeroSyllablePart :: String ->  [((String, String), (String, Integer))]
+zeroSyllablePart xs = map (\x -> if x == "γ" then (("γ", "greek"), ("-g 0 -z", 0)) else if x == "y" then (("y", "polish"), ("-g 0 -z", 0)) else ((x, "esperanto"), ("-g 0 -z", 0))) $ words $ convertSyllableToLanguage xs
 
+-- Function to create a list of Int that is used for dividing into syllables for more than one syllable words
+-- Функція, щоб створити список Int, який використовується для поділу на склади для більш, ніж односкладових слів
+mapLS :: String -> [Int] -> [Int]
 mapLS xs ks = let zss = divideToSyllables1 xs in map (\x -> length . filter (== 'w') . map snd $ concat $ take x zss) ks
 
 -- Additional function to find out the amount of parts to be taken for the k-th syllable
 -- Додаткова функція, щоб визначити, яку кількість частин потрібно взяти для k-го складу
+rr :: String -> Int -> Int
 rr xs k = let u = length $ divideToSyllables1 xs in let t = length $ filter (== k) $ mapLS xs [1..u] in case t of
   3 -> if k < u then (length $ filter (<= k) $ mapLS xs [1..u]) - 1 else u
   2 -> if k < u then (length $ filter (<= k) $ mapLS xs [1..u]) - 1 else u
@@ -328,21 +308,216 @@ createSyllablesMulti :: String -> [String]
 createSyllablesMulti xs = let zss = divideToSyllables1 xs in
   map (\y -> concatMap fst $ concat $ take (snd y) $ drop (fst y) zss) (listOfFrames xs)
 
--- Function that creates data of the type [((String, String),(String,Integer))] for multi-syllable words
--- Функція, що створює дані типу [((String, String),(String,Integer))] для багатоскладових слів
-createSyllablesMultiLast :: [String] -> (Maybe Integer, Integer) -> [((String, String),(String,Integer))]
-createSyllablesMultiLast xs (Just y, z) | y < z = concat [let u = take (fromInteger (y-1)) xs in  if (not . null $ u) then map (\x -> ((x, if elem 'и' x || elem 'И' x then "polish" else "esperanto"), ("-g 0 -z", z))) $ u else [],let u = head $ drop (fromInteger (y-1)) xs in map (\x -> ((x, if elem 'и' x || elem 'И' x then "polish" else "esperanto"), ("-g 0 -z -a 110", z))) [u],let u = take (fromInteger (z-y-1)) $ drop (fromInteger y) xs in if (not . null $ u) then map (\x -> ((x, if elem 'и' x || elem 'И' x then "polish" else "esperanto"), ("-g 0 -z", z))) $ u else [],map (\x -> ((x, if elem 'и' x || elem 'И' x then "polish" else "esperanto"), ("-g 0", z))) [last xs]]
-                                        | otherwise = concat [map (\x -> ((x, if elem 'и' x || elem 'И' x then "polish" else "esperanto"), ("-g 0 -z", z))) $ init xs,map (\x -> ((x, if elem 'и' x || elem 'И' x then "polish" else "esperanto"), ("-g 0 -a 110", z))) [last xs]]
-createSyllablesMultiLast xs (Nothing, z) = createSyllablesMultiLast xs (Just (z - 1), z)                                          
+-- Additional function for dividing into units for further processing
+-- Додаткова функція для поділу на одиниці для подальшої обробки
+divideToUnits :: String -> [[String]]
+divideToUnits [] = []
+divideToUnits xs = map (words . convertSyllableToLanguage) $ createSyllablesMulti xs
+
+-- Function that creates data of the type [((String, String),(String,Integer))] for non-zero-syllable words
+-- Функція, що створює дані типу [((String, String),(String,Integer))] для слів з голосними
+createSyllablesMultiLast2 :: [[String]] -> (Maybe Integer, Integer) -> [((String, String),(String,Integer))]
+createSyllablesMultiLast2 [] _ = []
+createSyllablesMultiLast2 xss (Just y, z) | z == 1 = case y of
+  1 -> concatMap (map (\x -> if x == "γ" then (("γ", "greek"), ("-g 0 -a 110 -z", 1)) else if x == "y" then (("y", "polish"), ("-g 0 -a 110 -z", 0)) else ((x, "esperanto"), ("-g 0 -a 110 -z", 1)))) $ xss
+  0 -> concatMap (map (\x -> if x == "γ" then (("γ", "greek"), ("-g 0 -z", 1)) else if x == "y" then (("y", "polish"), ("-g 0 -z", 0)) else ((x, "esperanto"), ("-g 0 -z", 1)))) $ xss
+  _ -> concatMap (map (\x -> if x == "γ" then (("γ", "greek"), ("-g 0 -a 110 -z", 1)) else if x == "y" then (("y", "polish"), ("-g 0 -a 110 -z", 0)) else ((x, "esperanto"), ("-g 0 -a 110 -z", 1)))) $ xss
+                                          | z > 1 = if y < z
+                                              then concat [concatMap (map (\x -> if x == "γ" then (("γ", "greek"), ("-g 0 -z", z)) else if x == "y" then (("y", "polish"), ("-g 0 -z", 0)) else ((x, "esperanto"), ("-g 0 -z", z)))) $ take (fromInteger (y - 1)) xss, concatMap (map (\x -> if x == "γ" then (("γ", "greek"), ("-g 0 -a 110 -z", z)) else if x == "y" then (("y", "polish"), ("-g 0 -a 110 -z", 0)) else ((x, "esperanto"), ("-g 0 -a 110 -z", z)))) $ [head $ drop (fromInteger (y - 1)) xss], concatMap (map (\x -> if x == "γ" then (("γ", "greek"), ("-g 0 -z", z)) else if x == "y" then (("y", "polish"), ("-g 0 -z", 0)) else ((x, "esperanto"), ("-g 0 -z", z)))) $ drop (fromInteger y) xss]
+                                              else concat [concatMap (map (\x -> if x == "γ" then (("γ", "greek"), ("-g 0 -z", z)) else if x == "y" then (("y", "polish"), ("-g 0 -z", 0)) else ((x, "esperanto"), ("-g 0 -z", z)))) $ take (fromInteger (y - 1)) xss, concatMap (map (\x -> if x == "γ" then (("γ", "greek"), ("-g 0 -a 110 -z", z)) else if x == "y" then (("y", "polish"), ("-g 0 -a 110 -z", 0)) else ((x, "esperanto"), ("-g 0 -a 110 -z", z)))) $ [last xss]]
+createSyllablesMultiLast2 xss (Nothing, z) = createSyllablesMultiLast2 xss (Just (z - 1), z)
+
+-- Additional function to create later a soft sign at the end of the word or syllable
+-- Додаткова функція, щоб створити потім м'який знак у кінці слова чи складу
+zz :: String -> [(String, [String])]
+zz [] = []
+zz xs = if null $ filter isVowelL xs
+  then zip [xs] [map (fst . fst) $ zeroSyllablePart xs]
+  else zip (createSyllablesMulti xs) (divideToUnits xs)
 
 -- Function that creates Ukrainian syllables and groups them with some parameters to be then processed by the eSpeak and SoX executables
 -- Функція, що створює українські склади та групує їх з деякими параметрами, щоб потім вони були оброблені програмами eSpeak і SoX
 createSyllablesReady :: (String, (Maybe Integer, Integer)) -> [((String, String),(String,Integer))]
 createSyllablesReady x = case snd . snd $ x of
-  0 -> map (zeroSyllablePart . fst) $ createSoundL $ filter isNotDigitOrDash $ fst x
-  1 -> [((fst x, if elem 'и' (fst x) || elem 'И' (fst x) then "polish" else "esperanto"), ("-g 0", 1))]
-  otherwise -> createSyllablesMultiLast (createSyllablesMulti $ fst x) (fst . snd $ x, snd . snd $ x)
+  0 -> zeroSyllablePart . fst $ x
+  otherwise -> createSyllablesMultiLast2 (divideToUnits $ fst x) (fst . snd $ x, snd . snd $ x)
 
+-- Function that combines the emphasis and dividing into sound groups into languages
+-- Функція, що поєднує наголос і поділ на групи звуків для мов
+combineSoundsLs :: String -> [((String, String), (String, Integer))]
+combineSoundsLs [] = []
+combineSoundsLs xs = createSyllablesReady . accountEmphasis $ xs
+
+-- Function that is used to make pauses between words
+-- Функція, що використовується для того, щоб були паузи між словами
+createPausesW :: [((String, String), (String, Integer))] -> [((String, String), (String, Integer))]
+createPausesW [] = []
+createPausesW [x] = [(fst x, (take ((length . fst . snd $ x) - 3) (fst . snd $ x), snd . snd $ x))]
+createPausesW xs = let (y, ys) = (last xs, init xs) in concat [ys, [(fst y, (take ((length . fst . snd $ y) - 3) (fst . snd $ y), snd . snd $ y))]]
+
+-- Function that applies additional function h to a if p is True on a
+-- Функція, що застосовує додаткову функцію h до a, якщо p є Істина на a
+bGroups :: (a -> Bool) -> (a -> [a]) -> [a] -> [a]
+bGroups p h xs = concatMap (\x -> if p x then h x else [x]) xs
+
+-- Function-predicate to check whether its argument is a Vowel sound letter in Esperanto or Greek respesentation of the group of sounds
+-- Функція-предикат, щоб визначити, чи її аргумент є літерою, що позначає голосний у представленні грецькою мовою чи есперанто
+isVowelEG :: Char -> Bool
+isVowelEG x = case x of
+  'a' -> True
+  'A' -> True
+  'o' -> True
+  'O' -> True
+  'e' -> True
+  'E' -> True
+  'u' -> True
+  'U' -> True
+  'i' -> True
+  'I' -> True
+  _   -> False
+
+-- Function-predicate that checks whether the hFunctionH must be applied to the [((String, String), (String, Integer))]
+-- Функція-предикат, яка перевіряє, чи має бути застосована hFunctionH до [((String, String), (String, Integer))]
+pFunctionP :: ((String, String), (String, Integer)) -> Bool
+pFunctionP ((xs, ys), (zs, k)) = null $ filter isVowelEG xs
+
+-- Function that converts zero-syllable groups of sounds into separate sounds for further processing
+-- Функція, що перетворює безголосні групи приголосних у окремі звуки для подальшої обробки
+hFunctionH :: ((String, String), (String, Integer)) -> [((String, String), (String, Integer))]
+hFunctionH (([x], ys), (zs, k)) = [(([x], ys), (zs, 0))]
+hFunctionH (([x, y], ys), (zs, k)) | x == 'd' || x == 'D' = case y of
+                                       'z' -> [(("dz", ys), (zs, 0))]
+                                       'ĵ' -> [(("dĵ", ys), (zs, 0))]
+                                       otherwise   -> [(("d", ys), (zs, 0)), (([y], ys), (zs, 0))]
+                                   | otherwise = [(([x], ys), (zs, 0)), (([y], ys), (zs, 0))]
+hFunctionH (((u:t:ts), ys), (zs, k)) | u == 'd' || u == 'D' = case t of
+                                          'z' -> (("dz", ys), (zs, 0)):(hFunctionH ((ts, ys), (zs, 0)))
+                                          'ĵ' -> (("dĵ", ys), (zs, 0)):(hFunctionH ((ts, ys), (zs, 0)))
+                                          otherwise   -> (("d", ys), (zs, 0)):(hFunctionH  (((t:ts), ys), (zs, 0)))
+                                     | otherwise = (([u], ys), (zs, 0)):(hFunctionH (((t:ts), ys), (zs, 0)))
+
+-- Function that prepares a String for processing by the eSpeak and SoX for non-zero-syllable words
+-- Функція, яка готує слово з голосним для подальшої обробки  eSpeak та SoX
+combineSoundsLs3 :: String -> [((String, String), (String, Integer))]
+combineSoundsLs3 xs = createPausesW $ bGroups pFunctionP hFunctionH $ combineSoundsLs xs
+              
+-- Function that is used to create String that is a parameter effect to get a needed duration of the sound
+-- Функція, що використовується для створення String, що є параметричним ефектом, щоб отримати звук потрібної тривалості
+stringDurationLim :: String -> String
+stringDurationLim [] = []
+stringDurationLim xs = case xs of
+  "A" -> " trim -0.265"
+  "a" -> " trim -0.265"
+  "eb" -> " trim -0.070"
+  "ec" -> " trim -0.115"
+  "eĉ" -> " trim -0.114"
+  "edĵ" -> " trim -0.166"
+  "ed" -> " trim -0.070"
+  "edz" -> " trim -0.178"
+  "ef" -> " trim -0.112"
+  "eg" -> " trim -0.081"
+  "eh" -> " trim -0.083"
+  "eĥ" -> " trim -0.118"
+  "eĵ" -> " trim -0.132"
+  "ej" -> " trim -0.133"
+  "ek" -> " trim -0.071"
+  "el" -> " trim -0.105"
+  "em" -> " trim -0.146"
+  "en" -> " trim -0.136"
+  "ep" -> " trim -0.103"
+  "er" -> " trim -0.099"
+  "eŝĉ" -> " trim -0.198"
+  "es" -> " trim -0.121"
+  "eŝ" -> " trim -0.121"
+  "E" -> " trim -0.254"
+  "e" -> " trim -0.254"
+  "et" -> " trim -0.071"
+  "ev" -> " trim -0.134"
+  "ez" -> " trim -0.157"
+  "I" -> " trim -0.254"
+  "i" -> " trim -0.254"
+  "ja" -> " trim -0.350"
+  "je" -> " trim -0.348"
+  "ji" -> " trim -0.329"
+  "ju" -> " trim -0.315"
+  "O" -> " trim -0.241"
+  "o" -> " trim -0.241"
+  "yy" -> ""
+  "U" -> " trim -0.241"
+  "u" -> " trim -0.241"
+  "αγ" -> " trim -0.117"
+  otherwise -> []
+
+-- Function that is used to convert single letters to a respective syllables for sounding
+-- Функція, що використовується, щоб перетворити окремі літери на відповідні склади для озвучування
+oneToSyllable :: String -> String
+oneToSyllable [] = []
+oneToSyllable xs = if head xs == 'd' || head xs == 'D'
+  then if null . tail $ xs
+         then "ed"
+         else case head . tail $ xs of
+                'z' -> "edz"
+                'ĵ' -> "edĵ"
+  else case head xs of
+    'ĵ' -> "eĵ"
+    'ŝ' -> "eŝ"
+    'ĉ' -> "eĉ"
+    'c' -> "ec"
+    'C' -> "ec"    
+    'e' -> "e"
+    'g' -> "eg"
+    'G' -> "eg"    
+--  '' -> "ja"
+--  '' -> "je"
+--  '' -> "ju"
+--  '' -> "ji"
+    'a' -> "a"
+    'A' -> "A"
+    'o' -> "o"
+    'O' -> "O"
+    'E' -> "E"
+    'u' -> "u"
+    'U' -> "U"
+    'i' -> "i"
+    'I' -> "I"
+    'j' -> "ej"
+    'J' -> "ej"    
+    'k' -> "ek"
+    'K' -> "ek"    
+    'b' -> "eb"
+    'B' -> "eb"    
+    'm' -> "em"
+    'M' -> "em"    
+--    '' -> "eŝĉ"
+    'v' -> "ev"
+    'V' -> "ev"    
+    'z' -> "ez"
+    'Z' -> "ez"    
+    's' -> "es"
+    'S' -> "es"    
+    'n' -> "en"
+    'N' -> "en"    
+    't' -> "et"
+    'T' -> "et"    
+    'ĥ' -> "eĥ"
+--  'd' -> "ed"
+    'p' -> "ep"
+    'P' -> "ep"    
+    'f' -> "ef"
+    'F' -> "ef"    
+    'h' -> "eh"
+    'H' -> "eh"    
+    'r' -> "er"
+    'R' -> "er"    
+    'l' -> "el"
+    'L' -> "el"    
+--    'd' -> case xs "edz"
+--    '' -> "edĵ"
+    'γ' -> "αγ"
+    'y' -> "yy"
+    'Y' -> "yy"
+    otherwise -> [head xs]
+  
 -- Function that for the Ukrainian syllable represented as ((String, String),(String,Integer)) creates sounds
 -- Функція, що для українського складу представленого як ((String, String),(String,Integer)) створює звуки
 createSoundsForSyllable :: IO Integer -> ((String, String),(String,Integer)) -> IO ()
@@ -356,28 +531,38 @@ createSoundsForSyllable time ((xs, ys),(zs, k)) = case k of
                            y <- findExecutable "sox.exe"
                            if (x /= Nothing) && (y /= Nothing)
                               then do
-                                let ts = convertSyllableToLanguage xs in if last xs == 'ь'
+                                let ts = oneToSyllable xs in let us = stringDurationLim ts in if last xs == 'ь'
                                   then do
-                                    return ("espeak.exe -z -v " ++ ys ++ " " ++ zs ++ " -w " ++ (show t1) ++ "." ++ ts ++ ".wav \"" ++ ts ++ "\"") >>= callCommand
-                                    return ("sox.exe " ++ (show t1) ++ "." ++ ts ++ ".wav " ++ (show t1) ++ "." ++ ts ++ ".wav ") >>= callCommand
-                                    addSoftSign $ (show t1) ++ "." ++ ts ++ ".wav"
+                                    return ("espeak.exe -v " ++ ys ++ " " ++ zs ++ " -w " ++ "m." ++ (show t1) ++ "." ++ xs ++ ".wav \"" ++ ts ++ "\"") >>= callCommand
+                                    return ("sox.exe " ++  "m." ++ (show t1) ++ "." ++ xs ++ ".wav " ++  (show t1) ++ "." ++ xs ++ ".wav " ++ us) >>= callCommand
+                                    addSoftSign $ (show t1) ++ "." ++ xs ++ ".wav"
                                   else do
-                                    return ("espeak.exe -z -v " ++ ys ++ " " ++ zs ++ " -w " ++ (show t1) ++ "." ++ ts ++ ".wav \"" ++ ts ++ "\"") >>= callCommand
-                                    return ("sox.exe " ++ (show t1) ++ "." ++ ts ++ ".wav " ++ (show t1) ++ "." ++ ts ++ ".wav ") >>= callCommand                                    
+                                    if xs == "y"
+                                      then do
+                                             return ("espeak.exe -v " ++ ys ++ " " ++ zs ++ " -w " ++  "m." ++ (show t1) ++ "." ++ xs ++ ".wav \"" ++ ts ++ "\"") >>= callCommand
+                                             return ("sox.exe " ++  "m." ++ (show t1) ++ "." ++ xs ++ ".wav " ++ (show t1) ++ "." ++ xs ++ ".wav " ++ us ++ " tempo -s 0.7") >>= callCommand
+                                      else do
+                                             return ("espeak.exe -v " ++ ys ++ " " ++ zs ++ " -w " ++  "m." ++ (show t1) ++ "." ++ xs ++ ".wav \"" ++ ts ++ "\"") >>= callCommand
+                                             return ("sox.exe " ++  "m." ++ (show t1) ++ "." ++ xs ++ ".wav " ++ (show t1) ++ "." ++ xs ++ ".wav " ++ us) >>= callCommand
                               else error "Please, install eSpeak executable espeak.exe and SoX executable sox.exe into the directories mentioned in the variable PATH!\n"
                        else do 
                            x <- findExecutable "espeak"
                            y <- findExecutable "sox"
                            if (x /= Nothing) && (y /= Nothing)
                               then do
-                                let ts = convertSyllableToLanguage xs in if last xs == 'ь'
+                                let ts = oneToSyllable xs in let us = stringDurationLim ts in if last xs == 'ь'
                                   then do
-                                    return ("espeak -z -v " ++ ys ++ " " ++ zs ++ " -w " ++ (show t1) ++ "." ++ ts ++ ".wav \"" ++ ts ++ "\"") >>= callCommand
-                                    return ("sox " ++ (show t1) ++ "." ++ ts ++ ".wav " ++ (show t1) ++ "." ++ ts ++ ".wav trim 0 0.045") >>= callCommand
-                                    addSoftSign $ (show t1) ++ "." ++ ts ++ ".wav"
+                                    return ("espeak -v " ++ ys ++ " " ++ zs ++ " -w " ++  "m." ++ (show t1) ++ "." ++ xs ++ ".wav \"" ++ ts ++ "\"") >>= callCommand
+                                    return ("sox " ++  "m." ++ (show t1) ++ "." ++ xs ++ ".wav " ++ (show t1) ++ "." ++ xs ++ ".wav" ++ us ) >>= callCommand
+                                    addSoftSign $ (show t1) ++ "." ++ xs ++ ".wav"
                                   else do
-                                    return ("espeak -z -v " ++ ys ++ " " ++ zs ++ " -w " ++ (show t1) ++ "." ++ ts ++ ".wav \"" ++ ts ++ "\"") >>= callCommand
-                                    return ("sox " ++ (show t1) ++ "." ++ ts ++ ".wav " ++ (show t1) ++ "." ++ ts ++ ".wav trim 0 0.045") >>= callCommand                                    
+                                    if xs == "y"
+                                      then do
+                                             return ("espeak -v " ++ ys ++ " " ++ zs ++ " -w " ++  "m." ++ (show t1) ++ "." ++ xs ++ ".wav \"" ++ ts ++ "\"") >>= callCommand
+                                             return ("sox " ++  "m." ++ (show t1) ++ "." ++ xs ++ ".wav " ++ (show t1) ++ "." ++ xs ++ ".wav" ++ us ++ " tempo -s 0.7") >>= callCommand
+                                      else do
+                                             return ("espeak -v " ++ ys ++ " " ++ zs ++ " -w " ++  "m." ++ (show t1) ++ "." ++ xs ++ ".wav \"" ++ ts ++ "\"") >>= callCommand
+                                             return ("sox " ++  "m." ++ (show t1) ++ "." ++ xs ++ ".wav " ++ (show t1) ++ "." ++ xs ++ ".wav" ++ us) >>= callCommand
                               else error "Please, install eSpeak executable espeak and SoX executable sox into the directories mentioned in the variable PATH!\n"
     otherwise -> do
                    t <- time
@@ -388,30 +573,57 @@ createSoundsForSyllable time ((xs, ys),(zs, k)) = case k of
                            y <- findExecutable "sox.exe"
                            if (x /= Nothing) && (y /= Nothing)
                               then do
-                                let ts = convertSyllableToLanguage xs in if last xs == 'ь'
+                                if last xs == 'ь'
                                   then do
-                                    return ("espeak.exe -z -v " ++ ys ++ " " ++ zs ++ " -w " ++ (show t1) ++ "." ++ ts ++ ".wav \"" ++ ts ++ "\"" ) >>= callCommand
-                                    addSoftSign $ (show t1) ++ "." ++ ts ++ ".wav"
+                                    return ("espeak.exe -v " ++ ys ++ " " ++ zs ++ " -w " ++ (show t1) ++ "." ++ xs ++ ".wav \"" ++ xs ++ "\"" ) >>= callCommand
+                                    addSoftSign $ (show t1) ++ "." ++ xs ++ ".wav"
                                   else do
-                                    return ("espeak.exe -z -v " ++ ys ++ " " ++ zs ++ " -w " ++ (show t1) ++ "." ++ ts ++ ".wav \"" ++ ts ++ "\"" ) >>= callCommand                             
+                                    return ("espeak.exe -v " ++ ys ++ " " ++ zs ++ " -w " ++ (show t1) ++ "." ++ xs ++ ".wav \"" ++ xs ++ "\"" ) >>= callCommand                             
                               else error "Please, install eSpeak executable espeak.exe and SoX executable sox.exe into the directories mentioned in the variable PATH!\n"
                        else do 
                            x <- findExecutable "espeak"
                            y <- findExecutable "sox"
                            if (x /= Nothing) && (y /= Nothing)
                               then do
-                                let ts = convertSyllableToLanguage xs in if last xs == 'ь'
+                                if last xs == 'ь'
                                   then do
-                                    return ("espeak -z -v " ++ ys ++ " " ++ zs ++ " -w " ++ (show t1) ++ "." ++ ts ++ ".wav \"" ++ ts ++ "\"" ) >>= callCommand
-                                    addSoftSign $ (show t1) ++ "." ++ ts ++ ".wav"
+                                    return ("espeak -v " ++ ys ++ " " ++ zs ++ " -w " ++ (show t1) ++ "." ++ xs ++ ".wav \"" ++ xs ++ "\"" ) >>= callCommand
+                                    addSoftSign $ (show t1) ++ "." ++ xs ++ ".wav"
                                   else do
-                                    return ("espeak -z -v " ++ ys ++ " " ++ zs ++ " -w " ++ (show t1) ++ "." ++ ts ++ ".wav \"" ++ ts ++ "\"" ) >>= callCommand                             
+                                    return ("espeak -v " ++ ys ++ " " ++ zs ++ " -w " ++ (show t1) ++ "." ++ xs ++ ".wav \"" ++ xs ++ "\"" ) >>= callCommand                             
                               else error "Please, install eSpeak executable espeak and SoX executable sox into the directories mentioned in the variable PATH!\n"
 
--- Additional function that is used inside the createSoundsForSyllable function to convert Ukrainian syllables into Esperanto or Polish ones
--- Додаткова функція, що використовується всередині createSoundsForSyllable для конвертування українського складу в склад мовою есперанто чи польською
+-- Additional function-predicate to check if its argument is a sound that converts to another language than the default Esperanto one
+-- Додаткова функція-предикат, щоб перевірити, чи її аргумент є звуком, що конверується до іншої мови, ніж звичайна есперанто
+continueLang :: Char -> Bool
+continueLang x = case x of
+  'и' -> False
+  'И' -> False
+  'г' -> False
+  'Г' -> False
+  _  -> True
+
+-- Additional function-predicate to check if its argument is a sound that converts to another language than the default Esperanto one in the zero-syllable words
+-- Додаткова функція-предикат, щоб перевірити, чи її аргумент є звуком, що конверується до іншої мови, ніж звичайна есперанто у нульскладових словах
+continueLangZero :: Char -> Bool
+continueLangZero x = case x of
+  'г' -> False
+  'Г' -> False
+  _  -> True
+  
+-- Additional function that is used inside the createSoundsForSyllable function to convert Ukrainian syllables into Esperanto, or Polish, or Greek ones
+-- Додаткова функція, що використовується всередині createSoundsForSyllable для конвертування українського складу в склад мовою есперанто, польською чи грецькою
 convertSyllableToLanguage ::  String ->  String
-convertSyllableToLanguage xs =  if elem 'и' xs || elem 'И' xs then changeToPolish xs else changeToEsperanto xs
+convertSyllableToLanguage [] = []
+convertSyllableToLanguage xs =  if elem 'и' xs || elem 'И' xs || elem 'г' xs || elem 'Г' xs
+         then changeToEsperanto $ takeWhile continueLang xs ++ " " ++ (if (head $ dropWhile continueLang xs) == 'и' || (head $ dropWhile continueLang xs) == 'И'
+                                                                                             then changeToPolish "и"
+                                                                                             else if not $ null $ tail $ dropWhile continueLang xs
+                                                                                                     then if (head $ tail $ dropWhile continueLang xs) == 'ь'
+                                                                                                            then changeToGreek "г" ++ "ь"
+                                                                                                            else changeToGreek "г"
+                                                                                                     else changeToGreek "г") ++ " " ++ convertSyllableToLanguage (tail $ dropWhile continueLang xs)
+         else changeToEsperanto xs
 
 -- Function that converts a String with digits into an Integer
 -- Функція, що конвертує String з цифрами в Integer
@@ -435,7 +647,7 @@ stringToInteger xs = foldl1 ((+) . (*10)) $! (map (charToDigit) $ xs)
 -- Функція, що власне перетворює українське слово у Polish рядок для подальшого озвучування
 changeToPolish :: String -> String
 changeToPolish [] = []
-changeToPolish x = concatMap change3 ( replaceWithList [Replace (string'fromString "нь") "ń", Replace (string'fromString "рх") "rch", Replace (string'fromString "ьй") "jj"] x)
+changeToPolish x = concatMap change3 x
 
 -- Function that actually converts a Ukrainian word to the Esperanto string for further reading
 -- Функція, що власне перетворює українське слово у Esperanto рядок для подальшого озвучування                        
@@ -443,13 +655,12 @@ changeToEsperanto :: String -> String
 changeToEsperanto [] = []
 changeToEsperanto x = concatMap change2 ( replaceWithList [Replace (string'fromString "цьцьа") "csja", Replace (string'fromString "ьо") "jo", Replace (string'fromString "ьй") "jj", Replace (string'fromString "ьа") "ja", Replace (string'fromString "ьу") "ju", Replace (string'fromString "ье") "je"] x)
 
--- Function that converts a list of Ukrainian strings to the list of Language String data with respect to the rules of sounding
--- Функція, що перетворює список українських рядків на список даних типу Language String з врахуванням правил озвучування
-polishChecker :: [String] -> [Language String]
-polishChecker [] = []
-polishChecker (x:xs) = if ((elem 'и' x) || (elem 'И' x)) 
-                             then (Polish (changeToPolish x)):(polishChecker xs)
-                             else (Esperanto (changeToEsperanto x)):(polishChecker xs)
+-- Function that actually converts a Ukrainian sound "г" to the Greek string for further reading
+-- Функція, що власне перетворює український звук "г" у Greek рядок для подальшого озвучування                        
+changeToGreek :: String -> String
+changeToGreek [] = []
+changeToGreek x | x == "г" = "γ"
+                | otherwise = x
 
 -- Function to convert char-by-char the rest of the preprocessed Ukrainian word into the Esperanto sounding string
 -- Функція для перетворення символ за символом решти попердньо обробленого українського слова у радок Esperanto для озвучування
@@ -526,55 +737,10 @@ change2 x | x == 'ж' = "ĵ"
 -- Function to convert char-by-char the rest of the preprocessed Ukrainian word into the Polish sounding string
 -- Функція для перетворення символ за символом решти попердньо обробленого українського слова у радок Polish для озвучування
 change3 :: Char -> String
-change3 x | x == 'ж' = "ż"
-          | x == 'Ж' = "ż"
-          | x == 'ш' = "sz"
-          | x == 'Ш' = "Sz"
-          | x == 'ч' = "cz"
-          | x == 'Ч' = "Cz"
-          | x == 'ц' = "c"
-          | x == 'Ц' = "C"
-          | x == 'ь' = ""
-          | x == 'ґ' = "g"
-          | x == 'Ґ' = "G"
-          | x == 'к' = "k"
-          | x == 'К' = "K"
-          | x == 'б' = "b"
-          | x == 'Б' = "B"
-          | x == 'м' = "m"
-          | x == 'М' = "M"
-          | x == 'щ' = "szcz"
-          | x == 'Щ' = "Szcz"
-          | x == 'в' = "w"
-          | x == 'В' = "W"
-          | x == 'з' = "z"
-          | x == 'З' = "Z"
-          | x == 'с' = "s"
-          | x == 'С' = "S"
-          | x == 'н' = "n"
-          | x == 'Н' = "N"
-          | x == 'т' = "t"
-          | x == 'Т' = "T"
-          | x == 'х' = "cĥ"
-          | x == 'Х' = "Cĥ"
-          | x == 'д' = "d"
-          | x == 'Д' = "D"
-          | x == 'п' = "p"
-          | x == 'П' = "P"
-          | x == 'ф' = "f"
-          | x == 'Ф' = "F"
-          | x == 'г' = "h"
-          | x == 'Г' = "H"
-          | x == 'р' = "r"
-          | x == 'Р' = "R"
-          | x == 'л' = "l"
-          | x == 'Л' = "L"
-          | x == '’' = ""
+change3 x | x == '’' = ""
           | x == '-' = ""
           | x == 'и' = "y"
-          | x == 'И' = "Y"
-          | x == 'й' = "j"
-          | x == 'Й' = "J"          
+          | x == 'И' = "y"
           | otherwise = [x]
 
 -- Function that checks the eSpeak and SoX executables existence and is used for soft sign sound creation
@@ -630,4 +796,4 @@ main = do
    putStrLn "Не ставте дефісів або інших розділювачів (у т. ч. пробілів). Не хвилюйтеся, ці числа НЕ будуть озвучені програмою.\n"
    createSoftSign
    nI2 <- getContents
-   mapM_ (mapM_ (createSoundsForSyllable getCPUTime)) (map (createSyllablesReady . accountEmphasis) $ words2 nI2)
+   mapM_ (mapM_ (createSoundsForSyllable getCPUTime)) (map combineSoundsLs3 $ words2 nI2)
