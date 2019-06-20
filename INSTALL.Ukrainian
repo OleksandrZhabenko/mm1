@@ -63,6 +63,10 @@ play speech.flac
 sox *.wav speech.flac rate -m 44100 bandpass 360 10 bandreject 300 10 gain 10 channels 2 earwax gain 7 dither -S
 play speech.flac 
 
+Щоб прискорити відтворення файлу, можна скористатися командою на зразок:
+
+play speech.flac tempo 1.4
+
 (Для користувачів Windows):
 sox.exe *.wav speech.flac rate -m 44100 bandpass 360 10 bandreject 300 10 gain 10 channels 2 earwax gain 7 dither -S
 play.exe speech.flac 
@@ -71,3 +75,7 @@ play.exe speech.flac
 
 sox.exe *.wav speech.flac rate -m 44100 bandpass 360 10 bandreject 300 10 gain 10 channels 2 earwax gain 7 dither -S
 play.exe speech.flac 
+
+Щоб прискорити відтворення файлу, можна скористатися командою на зразок:
+
+play.exe speech.flac tempo 1.4
