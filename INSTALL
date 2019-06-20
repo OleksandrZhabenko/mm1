@@ -66,6 +66,10 @@ If you would like to have some fun, you can enter not the previous two commands,
 sox *.wav speech.flac rate -m 44100 bandpass 360 10 bandreject 300 10 gain 10 channels 2 earwax gain 7 dither -S
 play speech.flac 
 
+To speed up the playback, you can use a command like:
+
+play speech.flac tempo 1.4
+
 (For Windows users):
 sox.exe 1*.wav speech.flac rate -m 44100 bandpass 360 10 bandreject 300 10 gain 10 channels 2 earwax gain 7 dither -S
 play.exe speech.flac 
@@ -74,3 +78,7 @@ If you would like to have some fun, you can enter not the previous two commands,
 
 sox.exe *.wav speech.flac rate -m 44100 bandpass 360 10 bandreject 300 10 gain 10 channels 2 earwax gain 7 dither -S
 play.exe speech.flac 
+
+To speed up the playback, you can use a command like:
+
+play.exe speech.flac tempo 1.4
