@@ -41,3 +41,7 @@
 
 * Fourth version. Now the program uses both syllabies and sounds approach together. Added support for letter "г".
 
+## 0.2.4.0  -- 2019-06-25
+
+* Fifth version. Added support for letter "ь". Added possibility to use command line arguments and to change 
+the duration of the singular letters.
