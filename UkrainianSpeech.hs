@@ -58,27 +58,6 @@ ukrainianJotted1 [x] = [x]
 ukrainianJottedLast :: String -> String
 ukrainianJottedLast xs = replaceWithList [Replace (string'fromString "я") "ьа", Replace (string'fromString "ю") "ьу", Replace (string'fromString "є") "ье", Replace (string'fromString "ї") "йі"] xs
 
--- Function that append the wrong sounding separate one-letter words to the next word to obtain more proper sounding
--- Функція, що додає неправильно озвучувані однолітерні слова до наступного слова, щоб отримати більш правильне озвучування
-{-concatUkrainian :: [String] -> [String]
-concatUkrainian [] = []
-concatUkrainian (x:xs) | not . null $ xs = if ((x == "в") || (x == "В") ||(x == "з") ||(x == "З") || (x == "Й") || (x == "й")) 
-                                              then (x ++ (head xs)):(concatUkrainian . tail $ xs)
-                                              else x:(concatUkrainian xs)
-                       | otherwise = [x]
-
--- Function that append the wrong sounding separate one-letter word "ж" or "б" to the previous word to obtain more proper sounding
--- Функція, що додає неправильно озвучуване однолітерне слово "ж" або "б" до попереднього слова, щоб отримати більш правильне озвучування
-concatUkrainianZhOrB :: [String] -> [String]
-concatUkrainianZhOrB [] = []
-concatUkrainianZhOrB xs = zipWith togetherZh xs (mappend (tail xs) [" "])
-               where togetherZh ys zs | (zs == "ж") = ys ++ "ж"
-                                      | (zs == "б") = ys ++ "б"
-                                      | (ys == "ж") = ""
-                                      | (ys == "б") = ""
-                                      | otherwise = ys
--}
-
 -- Function that makes some assimilation changes for correct Ukrainian pronunciation
 -- Функція, що робить деякі асиміляційні зміни для правильної української вимови
 changeAssimilative :: String -> String
@@ -107,7 +86,6 @@ words2 :: String -> [String]
 words2 [] = []
 words2 xs = assimilationFirst . words . ukrainianJottedLast . ukrainianJotted2 . ukrainianJotted1 .  changeAssimilative . ukrainianToMoreSounding . changeH2X $ xs
 --  concatUkrainian . concatUkrainianZhOrB .
-
 
 -- Function-predicate that checks whether its argument is either a digit character or a dash
 -- Функція-предикат, що перевіряє, чи її аргумент є символом цифри чи дефісу
