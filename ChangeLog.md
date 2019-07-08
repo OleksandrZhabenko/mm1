@@ -45,3 +45,7 @@
 
 * Fifth version. Added support for letter "ь". Added possibility to use command line arguments and to change 
 the duration of the singular letters.
+
+## 0.2.4.1  -- 2019-07-08
+
+* Fifth little revised version. Some minor changes to avoid overprocessment.
