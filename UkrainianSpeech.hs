@@ -28,12 +28,17 @@ import System.Environment (getArgs)
 -- Function that primarily converts Ukrainian line into more sounds-based line
 -- Функція, що початково перетворює український рядок на більш орінтований на звуки рядок
 ukrainianToMoreSounding :: String -> String
-ukrainianToMoreSounding xs = replaceWithList [Replace (string'fromString "ться") "цьцьа", Replace (string'fromString " --") " ", Replace (string'fromString "-- ") " ", Replace (string'fromString " -") " ",  Replace (string'fromString "- ") " ", Replace (string'fromString "ья") "ьйа", Replace (string'fromString "ьє") "ьйе", Replace (string'fromString "ью") "ьйу", Replace (string'fromString "ьї") "ьйі", Replace (string'fromString "’я") "ййа", Replace (string'fromString "’є") "ййе", Replace (string'fromString "’ю") "ййу", Replace (string'fromString "’ї") "ййі",  Replace (string'fromString "щ") "шч"] xs
+ukrainianToMoreSounding xs = replaceWithList [Replace (string'fromString "ться") "цьцьа", Replace (string'fromString " --") " ", 
+  Replace (string'fromString "-- ") " ", Replace (string'fromString " -") " ",  Replace (string'fromString "- ") " ", 
+    Replace (string'fromString "ья") "ьйа", Replace (string'fromString "ьє") "ьйе", Replace (string'fromString "ью") "ьйу", 
+      Replace (string'fromString "ьї") "ьйі", Replace (string'fromString "’я") "ййа", Replace (string'fromString "’є") "ййе", 
+        Replace (string'fromString "’ю") "ййу", Replace (string'fromString "’ї") "ййі",  Replace (string'fromString "щ") "шч"] xs
 
 -- Function to convert Ukrainian "я", "ю", "є" and "ї" into some other String for syllables processing
 -- Функція для перетворення українських "я", "ю", "є" та "ї" на деякі інші рядки для обробки складів
 ukrainianJotted2 :: String -> String
-ukrainianJotted2 xs = replaceWithList [Replace (string'fromString "Я") "Йа", Replace (string'fromString "Ю") "Йу", Replace (string'fromString "Є") "Йе", Replace (string'fromString "Ї") "Йі", Replace (string'fromString "ї") "йі"] xs
+ukrainianJotted2 xs = replaceWithList [Replace (string'fromString "Я") "Йа", Replace (string'fromString "Ю") "Йу", 
+  Replace (string'fromString "Є") "Йе", Replace (string'fromString "Ї") "Йі", Replace (string'fromString "ї") "йі"] xs
 
 -- Function to convert Ukrainian "я", "ю", "є" and "ї" into some other String for syllables processing
 -- Функція для перетворення українських "я", "ю", "є" та "ї" на деякі інші рядки для обробки складів
@@ -56,13 +61,16 @@ ukrainianJotted1 [x] = [x]
 -- Function to convert Ukrainian "я", "ю", "є" and "ї" into some other String for syllables processing
 -- Функція для перетворення українських "я", "ю", "є" та "ї" на деякі інші рядки для обробки складів
 ukrainianJottedLast :: String -> String
-ukrainianJottedLast xs = replaceWithList [Replace (string'fromString "я") "ьа", Replace (string'fromString "ю") "ьу", Replace (string'fromString "є") "ье", Replace (string'fromString "ї") "йі"] xs
+ukrainianJottedLast xs = replaceWithList [Replace (string'fromString "я") "ьа", Replace (string'fromString "ю") "ьу", 
+  Replace (string'fromString "є") "ье", Replace (string'fromString "ї") "йі"] xs
 
 -- Function that makes some assimilation changes for correct Ukrainian pronunciation
 -- Функція, що робить деякі асиміляційні зміни для правильної української вимови
 changeAssimilative :: String -> String
 changeAssimilative [] = []
-changeAssimilative xs = replaceWithList [Replace (string'fromString "нтськ") "ньськ", Replace (string'fromString "стськ") "сьськ", Replace (string'fromString "нтст") "нст", Replace (string'fromString "стць") "сьцьць", Replace (string'fromString "стч") "шч", Replace (string'fromString "стд") "зд", Replace (string'fromString "стс") "сс", Replace (string'fromString "ятдесят") "йадесьат"] xs
+changeAssimilative xs = replaceWithList [Replace (string'fromString "нтськ") "ньськ", Replace (string'fromString "стськ") "сьськ", 
+  Replace (string'fromString "нтст") "нст", Replace (string'fromString "стць") "сьцьць", Replace (string'fromString "стч") "шч", 
+    Replace (string'fromString "стд") "зд", Replace (string'fromString "стс") "сс", Replace (string'fromString "ятдесят") "йадесьат"] xs
 
 -- Additional function to take into account assimilation rules that depend on the position in the word of the group of Ukrainian sounds
 -- Додаткова функція, щоб врахувати правила асиміляції, які залежать від положення у слові групи українських звуків
@@ -78,7 +86,10 @@ assimilationFirst xs = map (\x -> let z = dropWhile isDigitOrDash x in if take 2
 -- Функція для спеціальних українських слів, де звук "г" звучить близько до "х"
 changeH2X :: String -> String
 changeH2X [] = []
-changeH2X xs = replaceWithList [Replace (string'fromString "вогк") "вохк", Replace (string'fromString "легк") "лехк", Replace (string'fromString "кігт") "кіхт", Replace (string'fromString "нігт") "ніхт", Replace (string'fromString "дігтяр") "діхтяр", Replace (string'fromString "Вогк") "вохк", Replace (string'fromString "Легк") "лехк", Replace (string'fromString "Кігт") "кіхт", Replace (string'fromString "Нігт") "ніхт", Replace (string'fromString "Дігтяр") "діхтяр"] xs
+changeH2X xs = replaceWithList [Replace (string'fromString "вогк") "вохк", Replace (string'fromString "легк") "лехк", 
+  Replace (string'fromString "кігт") "кіхт", Replace (string'fromString "нігт") "ніхт", Replace (string'fromString "дігтяр") "діхтяр", 
+    Replace (string'fromString "Вогк") "вохк", Replace (string'fromString "Легк") "лехк", Replace (string'fromString "Кігт") "кіхт", 
+      Replace (string'fromString "Нігт") "ніхт", Replace (string'fromString "Дігтяр") "діхтяр"] xs
 
 -- Function that produces the list of Ukrainian strings from the primary Ukrainian string which can be further easily processed
 -- Функція, яка створює список українських рядків з початкового українського рядка, які можуть бути легко оброблені далі
@@ -255,7 +266,11 @@ divideToSyllables1 xs = concatMap divideConsonants (takeWhile (not . null) (prep
 -- Function that takes a Ukrainian String and converts it to the data of the type ((String, String), (String, Integer)) that is used for zero-vowel words
 -- Функція, що отримує на вхід український String і конвертує його на дані типу ((String, String), (String, Integer)), що використовується для слів без голосних
 zeroSyllablePart :: String ->  [((String, String), (String, Integer))]
-zeroSyllablePart xs = map (\x -> if x == "γ" then (("γ", "greek"), ("-z", 0)) else if x == "y" then (("y", "polish"), ("-z", 0)) else ((x, "esperanto"), ("-z", 0))) $ words $ convertSyllableToLanguage xs
+zeroSyllablePart xs = map (\x -> if x == "γ" 
+  then (("γ", "greek"), ("-z", 0)) 
+  else if x == "y" 
+    then (("y", "polish"), ("-z", 0)) 
+    else ((x, "esperanto"), ("-z", 0))) $ words $ convertSyllableToLanguage xs
 
 -- Function to create a list of Int that is used for dividing into syllables for more than one syllable words
 -- Функція, щоб створити список Int, який використовується для поділу на склади для більш, ніж односкладових слів
@@ -305,20 +320,29 @@ createSyllablesMultiLast2 xss (Just y, z) | z == 1 = case y of
   0 -> concatMap (map (\x -> if x == "γ" then (("γ", "greek"), ("-z", 1)) else if x == "y" then (("y", "polish"), ("-z", 0)) else ((x, "esperanto"), ("-z", 1)))) $ xss
   _ -> concatMap (map (\x -> if x == "γ" then (("γ", "greek"), ("-a 110 -z", 1)) else if x == "y" then (("y", "polish"), ("-a 110 -z", 0)) else ((x, "esperanto"), ("-a 110 -z", 1)))) $ xss
                                           | z > 1 = if y < z
-                                              then concat [concatMap (map (\x -> if x == "γ" then (("γ", "greek"), ("-z", z)) else if x == "y" then (("y", "polish"), ("-z", 0)) else ((x, "esperanto"), ("-z", z)))) $ take (fromInteger (y - 1)) xss, concatMap (map (\x -> if x == "γ" then (("γ", "greek"), ("-a 110 -z", z)) else if x == "y" then (("y", "polish"), ("-a 110 -z", 0)) else ((x, "esperanto"), ("-a 110 -z", z)))) $ [head $ drop (fromInteger (y - 1)) xss], concatMap (map (\x -> if x == "γ" then (("γ", "greek"), ("-z", z)) else if x == "y" then (("y", "polish"), ("-z", 0)) else ((x, "esperanto"), ("-z", z)))) $ drop (fromInteger y) xss]
-                                              else concat [concatMap (map (\x -> if x == "γ" then (("γ", "greek"), ("-z", z)) else if x == "y" then (("y", "polish"), ("-z", 0)) else ((x, "esperanto"), ("-z", z)))) $ take (fromInteger (y - 1)) xss, concatMap (map (\x -> if x == "γ" then (("γ", "greek"), ("-a 110 -z", z)) else if x == "y" then (("y", "polish"), ("-a 110 -z", 0)) else ((x, "esperanto"), ("-a 110 -z", z)))) $ [last xss]]
+                                              then concat [concatMap (map (\x -> if x == "γ" 
+                                                then (("γ", "greek"), ("-z", z)) 
+                                                else if x == "y" 
+                                                  then (("y", "polish"), ("-z", 0)) 
+                                                  else ((x, "esperanto"), ("-z", z)))) $ take (fromInteger (y - 1)) xss, concatMap (map (\x -> if x == "γ" 
+                                                    then (("γ", "greek"), ("-a 110 -z", z)) 
+                                                    else if x == "y" 
+                                                      then (("y", "polish"), ("-a 110 -z", 0)) 
+                                                      else ((x, "esperanto"), ("-a 110 -z", z)))) $ [head $ drop (fromInteger (y - 1)) xss], concatMap (map (\x -> if x == "γ" 
+                                                        then (("γ", "greek"), ("-z", z)) 
+                                                        else if x == "y" 
+                                                          then (("y", "polish"), ("-z", 0)) 
+                                                          else ((x, "esperanto"), ("-z", z)))) $ drop (fromInteger y) xss]
+                                              else concat [concatMap (map (\x -> if x == "γ" 
+                                                then (("γ", "greek"), ("-z", z)) 
+                                                else if x == "y" 
+                                                  then (("y", "polish"), ("-z", 0)) 
+                                                  else ((x, "esperanto"), ("-z", z)))) $ take (fromInteger (y - 1)) xss, concatMap (map (\x -> if x == "γ" 
+                                                    then (("γ", "greek"), ("-a 110 -z", z)) 
+                                                    else if x == "y" 
+                                                      then (("y", "polish"), ("-a 110 -z", 0)) 
+                                                      else ((x, "esperanto"), ("-a 110 -z", z)))) $ [last xss]]
 createSyllablesMultiLast2 xss (Nothing, z) = createSyllablesMultiLast2 xss (Just (z - 1), z)
-
--- Additional function to create later a soft sign at the end of the word or syllable
--- Додаткова функція, щоб створити потім м'який знак у кінці слова чи складу
-zz :: [String] -> String
-zz [] = []
-zz xss = concatMap (\ys -> if null $ filter isVowelL ys
-  then ys
-  else concat . createSyllablesMulti $ ys) xss
-
--- nn :: (String, [String]) ->
-
 
 -- Function that creates Ukrainian syllables and groups them with some parameters to be then processed by the eSpeak and SoX executables
 -- Функція, що створює українські склади та групує їх з деякими параметрами, щоб потім вони були оброблені програмами eSpeak і SoX
@@ -506,9 +530,6 @@ oneToSyllable xs = if head xs == 'd' || head xs == 'D'
     'Y' -> "yy"
     otherwise -> [head xs]
 
--- zz :: String -> [(String, [String])]
--- addSoftSign :: FilePath -> IO ()
-  
 -- Function that for the Ukrainian syllable represented as ((String, String),(String,Integer)) creates sounds
 -- Функція, що для українського складу представленого як ((String, String),(String,Integer)) створює звуки
 createSoundsForSyllable :: IO Integer -> [String] -> ((String, String),(String,Integer)) -> IO ()
@@ -518,11 +539,7 @@ createSoundsForSyllable time args ((xs, ys),(zs, k)) = case k of
                    let t1 = 10000000000 + (t `div` 10000000) in
                      if (os == "Windows") 
                        then do 
-                           x <- findExecutable "espeak.exe"
-                           y <- findExecutable "sox.exe"
-                           if (x /= Nothing) && (y /= Nothing)
-                              then do
-                                if null args
+                           if null args
                                   then let ts = oneToSyllable $ filter (/= 'q') xs in let us = stringDurationLim ts in if last xs == 'q'
                                          then do
                                            return ("espeak.exe -v " ++ ys ++ " " ++ zs ++ " -w " ++ "m." ++ (show t1) ++ "." ++ ts ++ ".wav \"" ++ ts ++ "\"") >>= callCommand
@@ -589,13 +606,8 @@ createSoundsForSyllable time args ((xs, ys),(zs, k)) = case k of
                                                             else do
                                                               return ("espeak.exe -v " ++ ys ++ " " ++ zs ++ " -w " ++  "m." ++ (show t1) ++ "." ++ xs ++ ".wav \"" ++ ts ++ "\"") >>= callCommand
                                                               return ("sox.exe " ++  "m." ++ (show t1) ++ "." ++ xs ++ ".wav " ++ (show t1) ++ "." ++ xs ++ ".wav " ++ us ++ " tempo -s 0.7") >>= callCommand
-                              else error "Please, install eSpeak executable espeak.exe and SoX executable sox.exe into the directories mentioned in the variable PATH!\n"
                        else do 
-                           x <- findExecutable "espeak"
-                           y <- findExecutable "sox"
-                           if (x /= Nothing) && (y /= Nothing)
-                              then do
-                                if null args
+                         if null args
                                   then let ts = oneToSyllable $ filter (/= 'q') xs in let us = stringDurationLim ts in if last xs == 'q'
                                          then do
                                            return ("espeak -v " ++ ys ++ " " ++ zs ++ " -w " ++ "m." ++ (show t1) ++ "." ++ ts ++ ".wav \"" ++ ts ++ "\"") >>= callCommand
@@ -662,36 +674,25 @@ createSoundsForSyllable time args ((xs, ys),(zs, k)) = case k of
                                                             else do
                                                               return ("espeak -v " ++ ys ++ " " ++ zs ++ " -w " ++  "m." ++ (show t1) ++ "." ++ xs ++ ".wav \"" ++ ts ++ "\"") >>= callCommand
                                                               return ("sox " ++  "m." ++ (show t1) ++ "." ++ xs ++ ".wav " ++ (show t1) ++ "." ++ xs ++ ".wav " ++ us ++ " tempo -s 0.7") >>= callCommand
-                              else error "Please, install eSpeak executable espeak.exe and SoX executable sox.exe into the directories mentioned in the variable PATH!\n"
     otherwise -> do
                    t <- time
                    let t1 = 10000000000 + (t `div` 10000000) in
                      if (os == "Windows") 
                        then do 
-                           x <- findExecutable "espeak.exe"
-                           y <- findExecutable "sox.exe"
-                           if (x /= Nothing) && (y /= Nothing)
-                              then do
-                                if last xs == 'q'
+                         if last xs == 'q'
                                   then do
                                     return ("espeak.exe -v " ++ ys ++ " " ++ zs ++ " -w " ++ (show t1) ++ "." ++ (filter (/= 'q') xs) ++ ".wav \"" ++ (filter (/= 'q') xs) ++ "\"" ) >>= callCommand
                                     addSoftSign $ (show t1) ++ "." ++ (filter (/= 'q') xs) ++ ".wav"
                                   else do
                                     return ("espeak.exe -v " ++ ys ++ " " ++ zs ++ " -w " ++ (show t1) ++ "." ++ (filter (/= 'q') xs) ++ ".wav \"" ++ (filter (/= 'q') xs) ++ "\"" ) >>= callCommand
-                              else error "Please, install eSpeak executable espeak.exe and SoX executable sox.exe into the directories mentioned in the variable PATH!\n"
                        else do 
-                           x <- findExecutable "espeak"
-                           y <- findExecutable "sox"
-                           if (x /= Nothing) && (y /= Nothing)
-                              then do
-                                if last xs == 'q'
+                         if last xs == 'q'
                                   then do
                                     return ("espeak -v " ++ ys ++ " " ++ zs ++ " -w " ++ (show t1) ++ "." ++ (filter (/= 'q') xs) ++ ".wav \"" ++ (filter (/= 'q') xs) ++ "\"" ) >>= callCommand
                                     addSoftSign $ (show t1) ++ "." ++ (filter (/= 'q') xs) ++ ".wav"
                                   else do
                                     return ("espeak -v " ++ ys ++ " " ++ zs ++ " -w " ++ (show t1) ++ "." ++ (filter (/= 'q') xs) ++ ".wav \"" ++ (filter (/= 'q') xs) ++ "\"" ) >>= callCommand
-                              else error "Please, install eSpeak executable espeak and SoX executable sox into the directories mentioned in the variable PATH!\n"
-
+                       
 -- Additional function-predicate to check if its argument is a sound that converts to another language than the default Esperanto one
 -- Додаткова функція-предикат, щоб перевірити, чи її аргумент є звуком, що конверується до іншої мови, ніж звичайна есперанто
 continueLang :: Char -> Bool
@@ -752,7 +753,8 @@ changeToPolish x = concatMap change3 x
 -- Функція, що власне перетворює українське слово у Esperanto рядок для подальшого озвучування                        
 changeToEsperanto :: String -> String
 changeToEsperanto [] = []
-changeToEsperanto x = concatMap change2 ( replaceWithList [Replace (string'fromString "цьцьа") "csja", Replace (string'fromString "ьо") "jo", Replace (string'fromString "ьй") "jj", Replace (string'fromString "ьа") "ja", Replace (string'fromString "ьу") "ju", Replace (string'fromString "ье") "je"] x)
+changeToEsperanto x = concatMap change2 ( replaceWithList [Replace (string'fromString "цьцьа") "csja", Replace (string'fromString "ьо") "jo", 
+  Replace (string'fromString "ьй") "jj", Replace (string'fromString "ьа") "ja", Replace (string'fromString "ьу") "ju", Replace (string'fromString "ье") "je"] x)
 
 -- Function that actually converts a Ukrainian sound "г" to the Greek string for further reading
 -- Функція, що власне перетворює український звук "г" у Greek рядок для подальшого озвучування                        
@@ -870,22 +872,12 @@ addSoftSign :: FilePath -> IO ()
 addSoftSign file = do
                      if (os == "Windows") 
                          then do 
-                           x <- findExecutable "espeak.exe"
-                           y <- findExecutable "sox.exe"
-                           if (x /= Nothing) && (y /= Nothing)
-                              then do
                                    return ("sox.exe " ++ file ++ " m." ++  file ++ " trim 0 -0.01") >>= callCommand
                                    return ("sox.exe m." ++ file ++ " j.wav " ++ file) >>= callCommand
-                              else error "Please, install SoX executable sox.exe into the directory mentioned in the variable PATH!\n"
                          else do 
-                           x <- findExecutable "espeak"
-                           y <- findExecutable "sox"
-                           if (x /= Nothing) && (y /= Nothing)
-                              then do
                                    return ("sox " ++ file ++ " m." ++ file ++ " trim 0 -0.01") >>= callCommand
                                    return ("sox m." ++ file ++ " j.wav " ++ file) >>= callCommand
-                              else error "Please, install SoX executable sox into the directory mentioned in the variable PATH!\n"
-
+                           
 -- Main program
 -- Головна програма
 main = do 
