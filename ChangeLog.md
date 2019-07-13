@@ -49,3 +49,7 @@ the duration of the singular letters.
 ## 0.2.4.1  -- 2019-07-08
 
 * Fifth little revised version. Some minor changes to avoid overprocessment.
+
+## 0.2.5.0  -- 2019-07-14
+
+* Fifth revised version. Fixed some issues with the letters "ь" and "г".
