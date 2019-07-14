@@ -96,7 +96,6 @@ changeH2X xs = replaceWithList [Replace (string'fromString "вогк") "вохк
 words2 :: String -> [String]
 words2 [] = []
 words2 xs = assimilationFirst . words . ukrainianJottedLast . ukrainianJotted2 . ukrainianJotted1 .  changeAssimilative . ukrainianToMoreSounding . changeH2X $ xs
---  concatUkrainian . concatUkrainianZhOrB .
 
 -- Function-predicate that checks whether its argument is either a digit character or a dash
 -- Функція-предикат, що перевіряє, чи її аргумент є символом цифри чи дефісу
@@ -357,13 +356,6 @@ combineSoundsLs :: String -> [((String, String), (String, Integer))]
 combineSoundsLs [] = []
 combineSoundsLs xs = createSyllablesReady . accountEmphasis $ xs
 
--- Function that is used to make pauses between words
--- Функція, що використовується для того, щоб були паузи між словами
-createPausesW :: [((String, String), (String, Integer))] -> [((String, String), (String, Integer))]
-createPausesW [] = []
-createPausesW [x] = [(fst x, (take ((length . fst . snd $ x) - 3) (fst . snd $ x), snd . snd $ x))]
-createPausesW xs = let (y, ys) = (last xs, init xs) in concat [ys, [(fst y, (take ((length . fst . snd $ y) - 3) (fst . snd $ y), snd . snd $ y))]]
-
 -- Function that applies additional function h to a if p is True on a
 -- Функція, що застосовує додаткову функцію h до a, якщо p є Істина на a
 bGroups :: (a -> Bool) -> (a -> [a]) -> [a] -> [a]
@@ -409,7 +401,7 @@ hFunctionH (((u:t:ts), ys), (zs, k)) | u == 'd' || u == 'D' = case t of
 -- Function that prepares a String for processing by the eSpeak and SoX for non-zero-syllable words
 -- Функція, яка готує слово з голосним для подальшої обробки  eSpeak та SoX
 combineSoundsLs3 :: String -> [((String, String), (String, Integer))]
-combineSoundsLs3 xs = concatSoftSign $ createPausesW $ bGroups pFunctionP hFunctionH $ combineSoundsLs xs
+combineSoundsLs3 xs = concatSoftSign $ bGroups pFunctionP hFunctionH $ combineSoundsLs xs
 
 -- Function that concatenates alone soft sign with the previous letter (Esperanto or Greek)
 -- Функція, яка з'єднує ізольований м'який знак з попереднім приголосним (есперанто чи грецькою)
@@ -841,7 +833,7 @@ createSoftSign = do
                               then do
                                    return "espeak.exe -v esperanto -g 0 -w ь.wav -z \"j\"" >>= callCommand
                                    return "sox.exe ь.wav j.wav trim 0.02 0.037" >>= callCommand
-                              else error "Please, install eSpeak executable espeak.exe and SoX executable sox.exe into the directories mentioned in the variable PATH!\n"
+                              else error "Please, install eSpeak executable espeak.exe and SoX executable sox.exe into the directories mentioned in the variable PATH!\r\n"
                       else do 
                            x <- findExecutable "espeak"
                            y <- findExecutable "sox"
@@ -873,4 +865,13 @@ main = do
    createSoftSign
    args <- getArgs
    nI2 <- getContents
-   mapM_ (mapM_ (createSoundsForSyllable getCPUTime args)) (map combineSoundsLs3 $ words2 nI2)
+   let pauseW x = do
+             mapM_ (createSoundsForSyllable getCPUTime args) x
+             zz <- getCPUTime
+             let t1 = 10000000000 + (zz `div` 10000000) in
+               if (os == "Windows") 
+                 then do 
+                   return ("sox.exe -n -r 22.05k -c 1 -b 16 " ++ (show t1) ++ ".ee.wav delay 0.015 trim 0 0.014") >>= callCommand
+                 else do
+                   return ("sox -n -r 22.05k -c 1 -b 16 " ++ (show t1) ++ ".ee.wav delay 0.015 trim 0 0.014") >>= callCommand
+     in mapM_ pauseW (map combineSoundsLs3 $ words2 nI2)
