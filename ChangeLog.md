@@ -53,3 +53,8 @@ the duration of the singular letters.
 ## 0.2.5.0  -- 2019-07-14
 
 * Fifth revised version. Fixed some issues with the letters "ь" and "г".
+
+## 0.2.6.0  -- 2019-07-14
+
+* Sixth version. Changed approach to making pauses between words. Some additional minor changes.
+
