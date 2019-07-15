@@ -58,3 +58,7 @@ the duration of the singular letters.
 
 * Sixth version. Changed approach to making pauses between words. Some additional minor changes.
 
+## 0.2.6.1  -- 2019-07-15
+
+* Sixth version revised A. Some changes to making pauses between words. Fixed an issue with "maj\Maj" syllable. Some minor changes.
+
