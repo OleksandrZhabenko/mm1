@@ -19,10 +19,10 @@ cabal install text-replace
 
 Скопіюйте файли у папку, в якій маєте права на запис та виконання. Виконайте команду в терміналі 
 
-ghc -O2 -Wall -dynamic UkrainianSpeech.hs -o mm1
+ghc -O3 -Wall -dynamic UkrainianSpeech.hs -o mm1
 
 (Для користувачів Windows): 
-ghc.exe -O2 -Wall -dynamic UkrainianSpeech.hs -o mm1.exe
+ghc.exe -O3 -Wall -dynamic UkrainianSpeech.hs -o mm1.exe
 
 (+ Для користувачів Unix): 
 strip --strip-unneeded mm1
