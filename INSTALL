@@ -20,11 +20,11 @@ Installation
 
 Copy the files into the directory where you have permissions to write and execute files. Then run in the terminal
 
-ghc -O2 -Wall -dynamic UkrainianSpeech.hs -o mm1
+ghc -O3 -Wall -dynamic UkrainianSpeech.hs -o mm1
 
 (For Windows users):
 
-ghc.exe -O2 -Wall -dynamic UkrainianSpeech.hs -o mm1.exe
+ghc.exe -O3 -Wall -dynamic UkrainianSpeech.hs -o mm1.exe
 
 (+ For Unices users): 
 strip --strip-unneeded mm1
