@@ -62,3 +62,7 @@ the duration of the singular letters.
 
 * Sixth version revised A. Some changes to making pauses between words. Fixed an issue with "maj\Maj" syllable. Some minor changes.
 
+## 0.2.7.0  -- 2019-07-25
+
+* Sixth revised B. Added assimilation rules for consonants to the program. Fixed an issue with "mar\maj" syllable. Some optimisations added. The output files have no capital letters in them. Some other minor changes.
+
