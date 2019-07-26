@@ -257,7 +257,6 @@ divideConsonants xs = let y = length xs in case y of
   1 -> [xs]
   2 -> if (elem (snd . head $ xs) "rq" && head xs /= last xs) || (elem (snd . head $ xs) "di" && elem (snd . head . tail $ xs) "sa") then [[head xs], tail xs] else [xs]
   3 -> if elem (snd . head $ xs) "rq" then [[head xs], tail xs] else if elem (snd . head . tail $ xs) "rq" then [[head xs, head . tail $ xs], [last xs]] else [xs]
-  4 -> if elem (snd . head $ xs) "rqdi" then [[head xs], tail xs] else [xs]
   _ -> if elem (snd . head $ xs) "rqdi" then [[head xs], tail xs] else [xs]
 
 -- Intermediate function for creating a Ukrainian syllables
@@ -316,7 +315,6 @@ divideToUnits xs = map convertSyllableToLanguage $ createSyllablesMulti xs
 -- Function that creates data of the type [((String, String),(String,Integer))] for non-zero-syllable words
 -- Функція, що створює дані типу [((String, String),(String,Integer))] для слів з голосними
 createSyllablesMultiLast2 :: [[String]] -> (Maybe Integer, Integer) -> [((String, String),(String,Integer))]
---createSyllablesMultiLast2 xss (_, _) = []
 createSyllablesMultiLast2 xss (Just y, z) | null xss = []
                                           | otherwise = case z of 
     1 -> case y of
@@ -399,17 +397,26 @@ hFunctionH (((u:t:ts), ys), (zs, _)) | u == 'd' = case t of
                                           _   -> (("d", ys), (zs, 0)):hFunctionH  (((t:ts), ys), (zs, 0))
                                      | otherwise = (([u], ys), (zs, 0)):hFunctionH (((t:ts), ys), (zs, 0))
 
--- Function that divides wrongly sounding syllables maj or mar into to parts
--- Функція, яка ділить неправильно озвучувані склади maj чи mar на дві частини
-hDivideMajMar2:: ((String, String), (String, Integer)) -> [((String, String), (String, Integer))]
-hDivideMajMar2 (("maj", ys), (zs, k)) = [(("m", ys), (zs, 0)),(("aj", ys), (zs, k))]
-hDivideMajMar2 (("mar", ys), (zs, k)) = [(("m", ys), (zs, 0)),(("ar", ys), (zs, k))]
-hDivideMajMar2 x = [x]
+-- Function that divides wrongly sounding syllables for abbeviations of esperanto months into parts
+-- Функція, яка ділить неправильно озвучувані склади для абревіатур назв місяців мовою есперанто на дві частини
+hDivideMonths2:: ((String, String), (String, Integer)) -> [((String, String), (String, Integer))]
+hDivideMonths2 ((xs, ys), (zs, k)) = case xs of
+  "jan" -> [(("ja", ys), (zs, k)),(("n", ys), (zs, 0))]
+  "feb" -> [(("fe", ys), (zs, k)),(("b", ys), (zs, 0))]
+  "mar" -> [(("ma", ys), (zs, k)),(("r", ys), (zs, 0))]
+  "apr" -> [(("ap", ys), (zs, k)),(("r", ys), (zs, 0))]
+  "maj" -> [(("ma", ys), (zs, k)),(("j", ys), (zs, 0))]
+  "jun" -> [(("ju", ys), (zs, k)),(("n", ys), (zs, 0))]
+  "jul" -> [(("ju", ys), (zs, k)),(("l", ys), (zs, 0))]
+  "sept" -> [(("sep", ys), (zs, k)),(("t", ys), (zs, 0))]
+  "okt" -> [(("ok", ys), (zs, k)),(("t", ys), (zs, 0))]
+  "dec" -> [(("de", ys), (zs, k)),(("c", ys), (zs, 0))]
+  _ -> [((xs, ys), (zs, k))]
 
 -- Function that prepares a String for processing by the eSpeak and SoX for non-zero-syllable words
 -- Функція, яка готує слово з голосним для подальшої обробки  eSpeak та SoX
 combineSoundsLs3 :: String -> [((String, String), (String, Integer))]
-combineSoundsLs3 xs = concatSoftSign $ concatMap hDivideMajMar2 $ bGroups pFunctionP hFunctionH $ combineSoundsLs xs
+combineSoundsLs3 xs = concatSoftSign $ concatMap hDivideMonths2 $ bGroups pFunctionP hFunctionH $ combineSoundsLs xs
 
 -- Function that concatenates alone soft sign with the previous letter (Esperanto or Greek)
 -- Функція, яка з'єднує ізольований м'який знак з попереднім приголосним (есперанто чи грецькою)
@@ -515,140 +522,224 @@ createSoundsForSyllable time args ((xs, ys),(zs, k)) = case k of
                      if (os == "Windows") 
                        then do 
                            if null args
-                                  then let ts = oneToSyllable $ filter (/= 'q') xs in let us = stringDurationLim ts in if last xs == 'q'
-                                         then do
-                                           return ("espeak.exe -v " ++ ys ++ " " ++ zs ++ " -w m." ++ (show t1) ++ "." ++ ts ++ ".wav \"" ++ ts ++ "\"") >>= callCommand
-                                           return ("sox.exe " ++  "m." ++ (show t1) ++ "." ++ ts ++ ".wav " ++  (show t1) ++ "." ++ ts ++ ".wav " ++ us) >>= callCommand
-                                           addSoftSign $ (show t1) ++ "." ++ ts ++ ".wav"
-                                         else do
-                                           if xs == "y"
-                                             then do
-                                               return ("espeak.exe -v " ++ ys ++ " " ++ zs ++ " -w m." ++ (show t1) ++ "." ++ xs ++ ".wav \"" ++ ts ++ "\"") >>= callCommand
-                                               return ("sox.exe " ++  "m." ++ (show t1) ++ "." ++ xs ++ ".wav " ++ (show t1) ++ "." ++ xs ++ ".wav " ++ us ++ " tempo -s 0.7") >>= callCommand
-                                             else do
-                                               return ("espeak.exe -v " ++ ys ++ " " ++ zs ++ " -w m." ++ (show t1) ++ "." ++ xs ++ ".wav \"" ++ ts ++ "\"") >>= callCommand
-                                               return ("sox.exe " ++  "m." ++ (show t1) ++ "." ++ xs ++ ".wav " ++ (show t1) ++ "." ++ xs ++ ".wav " ++ us) >>= callCommand
-                                  else case head args of
-                                         "1" -> let ts = oneToSyllable $ filter (/= 'q') xs in let us = stringDurationLim ts in if last xs == 'q'
-                                                  then do
-                                                    return ("espeak.exe -v " ++ ys ++ " " ++ zs ++ " -w m." ++ (show t1) ++ "." ++ ts ++ ".wav \"" ++ ts ++ "\"") >>= callCommand
-                                                    return ("sox.exe " ++  "m." ++ (show t1) ++ "." ++ ts ++ ".wav " ++  (show t1) ++ "." ++ ts ++ ".wav " ++ us ++ " tempo -s 0.7") >>= callCommand
-                                                    addSoftSign $ (show t1) ++ "." ++ ts ++ ".wav"
-                                                  else do
-                                                    if xs == "y"
-                                                      then do
-                                                        return ("espeak.exe -v " ++ ys ++ " " ++ zs ++ " -w m." ++ (show t1) ++ "." ++ xs ++ ".wav \"" ++ ts ++ "\"") >>= callCommand
-                                                        return ("sox.exe " ++  "m." ++ (show t1) ++ "." ++ xs ++ ".wav " ++ (show t1) ++ "." ++ xs ++ ".wav " ++ us ++ " tempo -s 0.7") >>= callCommand
-                                                      else do
-                                                        return ("espeak.exe -v " ++ ys ++ " " ++ zs ++ " -w m." ++ (show t1) ++ "." ++ xs ++ ".wav \"" ++ ts ++ "\"") >>= callCommand
-                                                        return ("sox.exe " ++  "m." ++ (show t1) ++ "." ++ xs ++ ".wav " ++ (show t1) ++ "." ++ xs ++ ".wav " ++ us ++ " tempo -s 0.7") >>= callCommand
-                                         "2" -> let ts = oneToSyllable $ filter (/= 'q') xs in let us = stringDurationLim ts in if last xs == 'q'
-                                                  then do
-                                                    return ("espeak.exe -v " ++ ys ++ " " ++ zs ++ " -w m." ++ (show t1) ++ "." ++ ts ++ ".wav \"" ++ ts ++ "\"") >>= callCommand
-                                                    return ("sox.exe " ++  "m." ++ (show t1) ++ "." ++ ts ++ ".wav " ++  (show t1) ++ "." ++ ts ++ ".wav " ++ us ++ " tempo -s 0.8") >>= callCommand
-                                                    addSoftSign $ (show t1) ++ "." ++ ts ++ ".wav"
-                                                  else do
-                                                    if xs == "y"
-                                                      then do
-                                                        return ("espeak.exe -v " ++ ys ++ " " ++ zs ++ " -w m." ++ (show t1) ++ "." ++ xs ++ ".wav \"" ++ ts ++ "\"") >>= callCommand
-                                                        return ("sox.exe " ++  "m." ++ (show t1) ++ "." ++ xs ++ ".wav " ++ (show t1) ++ "." ++ xs ++ ".wav " ++ us ++ " tempo -s 0.7") >>= callCommand
-                                                      else do
-                                                        return ("espeak.exe -v " ++ ys ++ " " ++ zs ++ " -w m." ++ (show t1) ++ "." ++ xs ++ ".wav \"" ++ ts ++ "\"") >>= callCommand
-                                                        return ("sox.exe " ++  "m." ++ (show t1) ++ "." ++ xs ++ ".wav " ++ (show t1) ++ "." ++ xs ++ ".wav " ++ us ++ " tempo -s 0.8") >>= callCommand
-                                         "3" -> let ts = oneToSyllable $ filter (/= 'q') xs in let us = stringDurationLim ts in if last xs == 'q'
-                                                  then do
-                                                    return ("espeak.exe -v " ++ ys ++ " " ++ zs ++ " -w m." ++ (show t1) ++ "." ++ ts ++ ".wav \"" ++ ts ++ "\"") >>= callCommand
-                                                    return ("sox.exe " ++  "m." ++ (show t1) ++ "." ++ ts ++ ".wav " ++  (show t1) ++ "." ++ ts ++ ".wav " ++ us ++ " tempo -s 0.9") >>= callCommand
-                                                    addSoftSign $ (show t1) ++ "." ++ ts ++ ".wav"
-                                                  else do
-                                                    if xs == "y"
-                                                      then do
-                                                        return ("espeak.exe -v " ++ ys ++ " " ++ zs ++ " -w m." ++ (show t1) ++ "." ++ xs ++ ".wav \"" ++ ts ++ "\"") >>= callCommand
-                                                        return ("sox.exe " ++  "m." ++ (show t1) ++ "." ++ xs ++ ".wav " ++ (show t1) ++ "." ++ xs ++ ".wav " ++ us ++ " tempo -s 0.7") >>= callCommand
-                                                      else do
-                                                        return ("espeak.exe -v " ++ ys ++ " " ++ zs ++ " -w m." ++ (show t1) ++ "." ++ xs ++ ".wav \"" ++ ts ++ "\"") >>= callCommand
-                                                        return ("sox.exe " ++  "m." ++ (show t1) ++ "." ++ xs ++ ".wav " ++ (show t1) ++ "." ++ xs ++ ".wav " ++ us ++ " tempo -s 0.9") >>= callCommand
-                                         _ -> let ts = oneToSyllable $ filter (/= 'q') xs in let us = stringDurationLim ts in if last xs == 'q'
+                                  then case xs of
+                                    "," -> do 
+                                             return ("sox.exe -n -r 22.05k -c 1 -b 16 " ++ (show t1) ++ "." ++ xs ++ ".wav delay 0.401 trim 0 0.4") >>= callCommand
+                                    ";" -> do 
+                                             return ("sox.exe -n -r 22.05k -c 1 -b 16 " ++ (show t1) ++ "." ++ xs ++ ".wav delay 0.601 trim 0 0.6") >>= callCommand
+                                    ":" -> do 
+                                             return ("sox.exe -n -r 22.05k -c 1 -b 16 " ++ (show t1) ++ "." ++ xs ++ ".wav delay 0.701 trim 0 0.7") >>= callCommand
+                                    "." -> do 
+                                             return ("sox.exe -n -r 22.05k -c 1 -b 16 " ++ (show t1) ++ "." ++ xs ++ ".wav delay 0.801 trim 0 0.8") >>= callCommand
+                                    "!" -> do 
+                                             return ("sox.exe -n -r 22.05k -c 1 -b 16 " ++ (show t1) ++ "." ++ xs ++ ".wav delay 0.901 trim 0 0.9") >>= callCommand
+                                    "?" -> do 
+                                             return ("sox.exe -n -r 22.05k -c 1 -b 16 " ++ (show t1) ++ "." ++ xs ++ ".wav delay 0.901 trim 0 0.9") >>= callCommand
+                                    "!?" -> do 
+                                             return ("sox.exe -n -r 22.05k -c 1 -b 16 " ++ (show t1) ++ "." ++ xs ++ ".wav delay 1.201 trim 0 1.2") >>= callCommand
+                                    "?!" -> do 
+                                             return ("sox.exe -n -r 22.05k -c 1 -b 16 " ++ (show t1) ++ "." ++ xs ++ ".wav delay 1.201 trim 0 1.2") >>= callCommand
+                                    "–" -> do 
+                                             return ("sox.exe -n -r 22.05k -c 1 -b 16 " ++ (show t1) ++ "." ++ xs ++ ".wav delay 0.751 trim 0 0.75") >>= callCommand
+                                    "—" -> do 
+                                             return ("sox.exe -n -r 22.05k -c 1 -b 16 " ++ (show t1) ++ "." ++ xs ++ ".wav delay 0.851 trim 0 0.85") >>= callCommand
+                                    _ -> let ts = oneToSyllable $ filter (/= 'q') xs in let us = stringDurationLim ts in if last xs == 'q'
+                                           then do
+                                             return ("espeak.exe -v " ++ ys ++ " " ++ zs ++ " -w m." ++ (show t1) ++ "." ++ ts ++ ".wav \"" ++ ts ++ "\"") >>= callCommand
+                                             return ("sox.exe " ++  "m." ++ (show t1) ++ "." ++ ts ++ ".wav " ++  (show t1) ++ "." ++ ts ++ ".wav " ++ us) >>= callCommand
+                                             addSoftSign $ (show t1) ++ "." ++ ts ++ ".wav"
+                                           else do
+                                             if xs == "y"
+                                               then do
+                                                 return ("espeak.exe -v " ++ ys ++ " " ++ zs ++ " -w m." ++ (show t1) ++ "." ++ xs ++ ".wav \"" ++ ts ++ "\"") >>= callCommand
+                                                 return ("sox.exe " ++  "m." ++ (show t1) ++ "." ++ xs ++ ".wav " ++ (show t1) ++ "." ++ xs ++ ".wav " ++ us ++ " tempo -s 0.7") >>= callCommand
+                                               else do
+                                                 return ("espeak.exe -v " ++ ys ++ " " ++ zs ++ " -w m." ++ (show t1) ++ "." ++ xs ++ ".wav \"" ++ ts ++ "\"") >>= callCommand
+                                                 return ("sox.exe " ++  "m." ++ (show t1) ++ "." ++ xs ++ ".wav " ++ (show t1) ++ "." ++ xs ++ ".wav " ++ us) >>= callCommand
+                                  else case xs of
+                                    "," -> do 
+                                             return ("sox.exe -n -r 22.05k -c 1 -b 16 " ++ (show t1) ++ "." ++ xs ++ ".wav delay 0.401 trim 0 0.4") >>= callCommand
+                                    ";" -> do 
+                                             return ("sox.exe -n -r 22.05k -c 1 -b 16 " ++ (show t1) ++ "." ++ xs ++ ".wav delay 0.601 trim 0 0.6") >>= callCommand
+                                    ":" -> do 
+                                             return ("sox.exe -n -r 22.05k -c 1 -b 16 " ++ (show t1) ++ "." ++ xs ++ ".wav delay 0.701 trim 0 0.7") >>= callCommand
+                                    "." -> do 
+                                             return ("sox.exe -n -r 22.05k -c 1 -b 16 " ++ (show t1) ++ "." ++ xs ++ ".wav delay 0.801 trim 0 0.8") >>= callCommand
+                                    "!" -> do 
+                                             return ("sox.exe -n -r 22.05k -c 1 -b 16 " ++ (show t1) ++ "." ++ xs ++ ".wav delay 0.901 trim 0 0.9") >>= callCommand
+                                    "?" -> do 
+                                             return ("sox.exe -n -r 22.05k -c 1 -b 16 " ++ (show t1) ++ "." ++ xs ++ ".wav delay 0.901 trim 0 0.9") >>= callCommand
+                                    "!?" -> do 
+                                             return ("sox.exe -n -r 22.05k -c 1 -b 16 " ++ (show t1) ++ "." ++ xs ++ ".wav delay 1.201 trim 0 1.2") >>= callCommand
+                                    "?!" -> do 
+                                             return ("sox.exe -n -r 22.05k -c 1 -b 16 " ++ (show t1) ++ "." ++ xs ++ ".wav delay 1.201 trim 0 1.2") >>= callCommand
+                                    "–" -> do 
+                                             return ("sox.exe -n -r 22.05k -c 1 -b 16 " ++ (show t1) ++ "." ++ xs ++ ".wav delay 0.751 trim 0 0.75") >>= callCommand
+                                    "—" -> do 
+                                             return ("sox.exe -n -r 22.05k -c 1 -b 16 " ++ (show t1) ++ "." ++ xs ++ ".wav delay 0.851 trim 0 0.85") >>= callCommand
+                                    _ -> let ts = oneToSyllable $ filter (/= 'q') xs in let us = stringDurationLim ts in case head args of
+                                           "1" -> if last xs == 'q'
+                                                    then do
+                                                      return ("espeak.exe -v " ++ ys ++ " " ++ zs ++ " -w m." ++ (show t1) ++ "." ++ ts ++ ".wav \"" ++ ts ++ "\"") >>= callCommand
+                                                      return ("sox.exe " ++  "m." ++ (show t1) ++ "." ++ ts ++ ".wav " ++  (show t1) ++ "." ++ ts ++ ".wav " ++ us ++ " tempo -s 0.7") >>= callCommand
+                                                      addSoftSign $ (show t1) ++ "." ++ ts ++ ".wav"
+                                                    else do
+                                                      if xs == "y"
                                                         then do
-                                                          return ("espeak.exe -v " ++ ys ++ " " ++ zs ++ " -w m." ++ (show t1) ++ "." ++ ts ++ ".wav \"" ++ ts ++ "\"") >>= callCommand
-                                                          return ("sox.exe " ++  "m." ++ (show t1) ++ "." ++ ts ++ ".wav " ++  (show t1) ++ "." ++ ts ++ ".wav " ++ us ++ " tempo -s 0.7") >>= callCommand
-                                                          addSoftSign $ (show t1) ++ "." ++ ts ++ ".wav"
+                                                          return ("espeak.exe -v " ++ ys ++ " " ++ zs ++ " -w m." ++ (show t1) ++ "." ++ xs ++ ".wav \"" ++ ts ++ "\"") >>= callCommand
+                                                          return ("sox.exe " ++  "m." ++ (show t1) ++ "." ++ xs ++ ".wav " ++ (show t1) ++ "." ++ xs ++ ".wav " ++ us ++ " tempo -s 0.7") >>= callCommand
                                                         else do
-                                                          if xs == "y"
-                                                            then do
-                                                              return ("espeak.exe -v " ++ ys ++ " " ++ zs ++ " -w m." ++ (show t1) ++ "." ++ xs ++ ".wav \"" ++ ts ++ "\"") >>= callCommand
-                                                              return ("sox.exe " ++  "m." ++ (show t1) ++ "." ++ xs ++ ".wav " ++ (show t1) ++ "." ++ xs ++ ".wav " ++ us ++ " tempo -s 0.7") >>= callCommand
-                                                            else do
-                                                              return ("espeak.exe -v " ++ ys ++ " " ++ zs ++ " -w m." ++ (show t1) ++ "." ++ xs ++ ".wav \"" ++ ts ++ "\"") >>= callCommand
-                                                              return ("sox.exe " ++  "m." ++ (show t1) ++ "." ++ xs ++ ".wav " ++ (show t1) ++ "." ++ xs ++ ".wav " ++ us ++ " tempo -s 0.7") >>= callCommand
+                                                          return ("espeak.exe -v " ++ ys ++ " " ++ zs ++ " -w m." ++ (show t1) ++ "." ++ xs ++ ".wav \"" ++ ts ++ "\"") >>= callCommand
+                                                          return ("sox.exe " ++  "m." ++ (show t1) ++ "." ++ xs ++ ".wav " ++ (show t1) ++ "." ++ xs ++ ".wav " ++ us ++ " tempo -s 0.7") >>= callCommand
+                                           "2" -> if last xs == 'q'
+                                                    then do
+                                                      return ("espeak.exe -v " ++ ys ++ " " ++ zs ++ " -w m." ++ (show t1) ++ "." ++ ts ++ ".wav \"" ++ ts ++ "\"") >>= callCommand
+                                                      return ("sox.exe " ++  "m." ++ (show t1) ++ "." ++ ts ++ ".wav " ++  (show t1) ++ "." ++ ts ++ ".wav " ++ us ++ " tempo -s 0.8") >>= callCommand
+                                                      addSoftSign $ (show t1) ++ "." ++ ts ++ ".wav"
+                                                    else do
+                                                      if xs == "y"
+                                                        then do
+                                                          return ("espeak.exe -v " ++ ys ++ " " ++ zs ++ " -w m." ++ (show t1) ++ "." ++ xs ++ ".wav \"" ++ ts ++ "\"") >>= callCommand
+                                                          return ("sox.exe " ++  "m." ++ (show t1) ++ "." ++ xs ++ ".wav " ++ (show t1) ++ "." ++ xs ++ ".wav " ++ us ++ " tempo -s 0.8") >>= callCommand
+                                                        else do
+                                                          return ("espeak.exe -v " ++ ys ++ " " ++ zs ++ " -w m." ++ (show t1) ++ "." ++ xs ++ ".wav \"" ++ ts ++ "\"") >>= callCommand
+                                                          return ("sox.exe " ++  "m." ++ (show t1) ++ "." ++ xs ++ ".wav " ++ (show t1) ++ "." ++ xs ++ ".wav " ++ us ++ " tempo -s 0.8") >>= callCommand
+                                           "3" -> if last xs == 'q'
+                                                    then do
+                                                      return ("espeak.exe -v " ++ ys ++ " " ++ zs ++ " -w m." ++ (show t1) ++ "." ++ ts ++ ".wav \"" ++ ts ++ "\"") >>= callCommand
+                                                      return ("sox.exe " ++  "m." ++ (show t1) ++ "." ++ ts ++ ".wav " ++  (show t1) ++ "." ++ ts ++ ".wav " ++ us ++ " tempo -s 0.9") >>= callCommand
+                                                      addSoftSign $ (show t1) ++ "." ++ ts ++ ".wav"
+                                                    else do
+                                                      if xs == "y"
+                                                        then do
+                                                          return ("espeak.exe -v " ++ ys ++ " " ++ zs ++ " -w m." ++ (show t1) ++ "." ++ xs ++ ".wav \"" ++ ts ++ "\"") >>= callCommand
+                                                          return ("sox.exe " ++  "m." ++ (show t1) ++ "." ++ xs ++ ".wav " ++ (show t1) ++ "." ++ xs ++ ".wav " ++ us ++ " tempo -s 0.9") >>= callCommand
+                                                        else do
+                                                          return ("espeak.exe -v " ++ ys ++ " " ++ zs ++ " -w m." ++ (show t1) ++ "." ++ xs ++ ".wav \"" ++ ts ++ "\"") >>= callCommand
+                                                          return ("sox.exe " ++  "m." ++ (show t1) ++ "." ++ xs ++ ".wav " ++ (show t1) ++ "." ++ xs ++ ".wav " ++ us ++ " tempo -s 0.9") >>= callCommand
+                                           _ -> if last xs == 'q'
+                                                  then do
+                                                    return ("espeak.exe -v " ++ ys ++ " " ++ zs ++ " -w m." ++ (show t1) ++ "." ++ ts ++ ".wav \"" ++ ts ++ "\"") >>= callCommand
+                                                    return ("sox.exe " ++  "m." ++ (show t1) ++ "." ++ ts ++ ".wav " ++  (show t1) ++ "." ++ ts ++ ".wav " ++ us ++ " tempo -s 0.65") >>= callCommand
+                                                    addSoftSign $ (show t1) ++ "." ++ ts ++ ".wav"
+                                                  else do
+                                                    if xs == "y"
+                                                      then do
+                                                        return ("espeak.exe -v " ++ ys ++ " " ++ zs ++ " -w m." ++ (show t1) ++ "." ++ xs ++ ".wav \"" ++ ts ++ "\"") >>= callCommand
+                                                        return ("sox.exe " ++  "m." ++ (show t1) ++ "." ++ xs ++ ".wav " ++ (show t1) ++ "." ++ xs ++ ".wav " ++ us ++ " tempo -s 0.65") >>= callCommand
+                                                      else do
+                                                        return ("espeak.exe -v " ++ ys ++ " " ++ zs ++ " -w m." ++ (show t1) ++ "." ++ xs ++ ".wav \"" ++ ts ++ "\"") >>= callCommand
+                                                        return ("sox.exe " ++  "m." ++ (show t1) ++ "." ++ xs ++ ".wav " ++ (show t1) ++ "." ++ xs ++ ".wav " ++ us ++ " tempo -s 0.65") >>= callCommand
                        else do 
                          if null args
-                                  then let ts = oneToSyllable $ filter (/= 'q') xs in let us = stringDurationLim ts in if last xs == 'q'
-                                         then do
-                                           return ("espeak -v " ++ ys ++ " " ++ zs ++ " -w m." ++ (show t1) ++ "." ++ ts ++ ".wav \"" ++ ts ++ "\"") >>= callCommand
-                                           return ("sox " ++  "m." ++ (show t1) ++ "." ++ ts ++ ".wav " ++  (show t1) ++ "." ++ ts ++ ".wav " ++ us) >>= callCommand
-                                           addSoftSign $ (show t1) ++ "." ++ ts ++ ".wav"
-                                         else do
-                                           if xs == "y"
-                                             then do
-                                               return ("espeak -v " ++ ys ++ " " ++ zs ++ " -w m." ++ (show t1) ++ "." ++ xs ++ ".wav \"" ++ ts ++ "\"") >>= callCommand
-                                               return ("sox " ++  "m." ++ (show t1) ++ "." ++ xs ++ ".wav " ++ (show t1) ++ "." ++ xs ++ ".wav " ++ us ++ " tempo -s 0.7") >>= callCommand
-                                             else do
-                                               return ("espeak -v " ++ ys ++ " " ++ zs ++ " -w m." ++ (show t1) ++ "." ++ xs ++ ".wav \"" ++ ts ++ "\"") >>= callCommand
-                                               return ("sox " ++  "m." ++ (show t1) ++ "." ++ xs ++ ".wav " ++ (show t1) ++ "." ++ xs ++ ".wav " ++ us) >>= callCommand
-                                  else case head args of
-                                         "1" -> let ts = oneToSyllable $ filter (/= 'q') xs in let us = stringDurationLim ts in if last xs == 'q'
-                                                  then do
-                                                    return ("espeak -v " ++ ys ++ " " ++ zs ++ " -w m." ++ (show t1) ++ "." ++ ts ++ ".wav \"" ++ ts ++ "\"") >>= callCommand
-                                                    return ("sox " ++  "m." ++ (show t1) ++ "." ++ ts ++ ".wav " ++  (show t1) ++ "." ++ ts ++ ".wav " ++ us ++ " tempo -s 0.7") >>= callCommand
-                                                    addSoftSign $ (show t1) ++ "." ++ ts ++ ".wav"
-                                                  else do
-                                                    if xs == "y"
-                                                      then do
-                                                        return ("espeak -v " ++ ys ++ " " ++ zs ++ " -w m." ++ (show t1) ++ "." ++ xs ++ ".wav \"" ++ ts ++ "\"") >>= callCommand
-                                                        return ("sox " ++  "m." ++ (show t1) ++ "." ++ xs ++ ".wav " ++ (show t1) ++ "." ++ xs ++ ".wav " ++ us ++ " tempo -s 0.7") >>= callCommand
-                                                      else do
-                                                        return ("espeak -v " ++ ys ++ " " ++ zs ++ " -w m." ++ (show t1) ++ "." ++ xs ++ ".wav \"" ++ ts ++ "\"") >>= callCommand
-                                                        return ("sox " ++  "m." ++ (show t1) ++ "." ++ xs ++ ".wav " ++ (show t1) ++ "." ++ xs ++ ".wav " ++ us ++ " tempo -s 0.7") >>= callCommand
-                                         "2" -> let ts = oneToSyllable $ filter (/= 'q') xs in let us = stringDurationLim ts in if last xs == 'q'
-                                                  then do
-                                                    return ("espeak -v " ++ ys ++ " " ++ zs ++ " -w m." ++ (show t1) ++ "." ++ ts ++ ".wav \"" ++ ts ++ "\"") >>= callCommand
-                                                    return ("sox " ++  "m." ++ (show t1) ++ "." ++ ts ++ ".wav " ++  (show t1) ++ "." ++ ts ++ ".wav " ++ us ++ " tempo -s 0.8") >>= callCommand
-                                                    addSoftSign $ (show t1) ++ "." ++ ts ++ ".wav"
-                                                  else do
-                                                    if xs == "y"
-                                                      then do
-                                                        return ("espeak -v " ++ ys ++ " " ++ zs ++ " -w m." ++ (show t1) ++ "." ++ xs ++ ".wav \"" ++ ts ++ "\"") >>= callCommand
-                                                        return ("sox " ++  "m." ++ (show t1) ++ "." ++ xs ++ ".wav " ++ (show t1) ++ "." ++ xs ++ ".wav " ++ us ++ " tempo -s 0.7") >>= callCommand
-                                                      else do
-                                                        return ("espeak -v " ++ ys ++ " " ++ zs ++ " -w m." ++ (show t1) ++ "." ++ xs ++ ".wav \"" ++ ts ++ "\"") >>= callCommand
-                                                        return ("sox " ++  "m." ++ (show t1) ++ "." ++ xs ++ ".wav " ++ (show t1) ++ "." ++ xs ++ ".wav " ++ us ++ " tempo -s 0.8") >>= callCommand
-                                         "3" -> let ts = oneToSyllable $ filter (/= 'q') xs in let us = stringDurationLim ts in if last xs == 'q'
-                                                  then do
-                                                    return ("espeak -v " ++ ys ++ " " ++ zs ++ " -w m." ++ (show t1) ++ "." ++ ts ++ ".wav \"" ++ ts ++ "\"") >>= callCommand
-                                                    return ("sox " ++  "m." ++ (show t1) ++ "." ++ ts ++ ".wav " ++  (show t1) ++ "." ++ ts ++ ".wav " ++ us ++ " tempo -s 0.9") >>= callCommand
-                                                    addSoftSign $ (show t1) ++ "." ++ ts ++ ".wav"
-                                                  else do
-                                                    if xs == "y"
-                                                      then do
-                                                        return ("espeak -v " ++ ys ++ " " ++ zs ++ " -w m." ++ (show t1) ++ "." ++ xs ++ ".wav \"" ++ ts ++ "\"") >>= callCommand
-                                                        return ("sox " ++  "m." ++ (show t1) ++ "." ++ xs ++ ".wav " ++ (show t1) ++ "." ++ xs ++ ".wav " ++ us ++ " tempo -s 0.7") >>= callCommand
-                                                      else do
-                                                        return ("espeak -v " ++ ys ++ " " ++ zs ++ " -w m." ++ (show t1) ++ "." ++ xs ++ ".wav \"" ++ ts ++ "\"") >>= callCommand
-                                                        return ("sox " ++  "m." ++ (show t1) ++ "." ++ xs ++ ".wav " ++ (show t1) ++ "." ++ xs ++ ".wav " ++ us ++ " tempo -s 0.9") >>= callCommand
-                                         _ -> let ts = oneToSyllable $ filter (/= 'q') xs in let us = stringDurationLim ts in if last xs == 'q'
+                                  then case xs of
+                                    "," -> do 
+                                             return ("sox -n -r 22.05k -c 1 -b 16 " ++ (show t1) ++ "." ++ xs ++ ".wav delay 0.401 trim 0 0.4") >>= callCommand
+                                    ";" -> do 
+                                             return ("sox -n -r 22.05k -c 1 -b 16 " ++ (show t1) ++ "." ++ xs ++ ".wav delay 0.601 trim 0 0.6") >>= callCommand
+                                    ":" -> do 
+                                             return ("sox -n -r 22.05k -c 1 -b 16 " ++ (show t1) ++ "." ++ xs ++ ".wav delay 0.701 trim 0 0.7") >>= callCommand
+                                    "." -> do 
+                                             return ("sox -n -r 22.05k -c 1 -b 16 " ++ (show t1) ++ "." ++ xs ++ ".wav delay 0.801 trim 0 0.8") >>= callCommand
+                                    "!" -> do 
+                                             return ("sox -n -r 22.05k -c 1 -b 16 " ++ (show t1) ++ "." ++ xs ++ ".wav delay 0.901 trim 0 0.9") >>= callCommand
+                                    "?" -> do 
+                                             return ("sox -n -r 22.05k -c 1 -b 16 " ++ (show t1) ++ "." ++ xs ++ ".wav delay 0.901 trim 0 0.9") >>= callCommand
+                                    "!?" -> do 
+                                             return ("sox -n -r 22.05k -c 1 -b 16 " ++ (show t1) ++ "." ++ xs ++ ".wav delay 1.201 trim 0 1.2") >>= callCommand
+                                    "?!" -> do 
+                                             return ("sox -n -r 22.05k -c 1 -b 16 " ++ (show t1) ++ "." ++ xs ++ ".wav delay 1.201 trim 0 1.2") >>= callCommand
+                                    "–" -> do 
+                                             return ("sox -n -r 22.05k -c 1 -b 16 " ++ (show t1) ++ "." ++ xs ++ ".wav delay 0.751 trim 0 0.75") >>= callCommand
+                                    "—" -> do 
+                                             return ("sox -n -r 22.05k -c 1 -b 16 " ++ (show t1) ++ "." ++ xs ++ ".wav delay 0.851 trim 0 0.85") >>= callCommand
+                                    _ -> let ts = oneToSyllable $ filter (/= 'q') xs in let us = stringDurationLim ts in if last xs == 'q'
+                                           then do
+                                             return ("espeak -v " ++ ys ++ " " ++ zs ++ " -w m." ++ (show t1) ++ "." ++ ts ++ ".wav \"" ++ ts ++ "\"") >>= callCommand
+                                             return ("sox " ++  "m." ++ (show t1) ++ "." ++ ts ++ ".wav " ++  (show t1) ++ "." ++ ts ++ ".wav " ++ us) >>= callCommand
+                                             addSoftSign $ (show t1) ++ "." ++ ts ++ ".wav"
+                                           else do
+                                             if xs == "y"
+                                               then do
+                                                 return ("espeak -v " ++ ys ++ " " ++ zs ++ " -w m." ++ (show t1) ++ "." ++ xs ++ ".wav \"" ++ ts ++ "\"") >>= callCommand
+                                                 return ("sox " ++  "m." ++ (show t1) ++ "." ++ xs ++ ".wav " ++ (show t1) ++ "." ++ xs ++ ".wav " ++ us ++ " tempo -s 0.7") >>= callCommand
+                                               else do
+                                                 return ("espeak -v " ++ ys ++ " " ++ zs ++ " -w m." ++ (show t1) ++ "." ++ xs ++ ".wav \"" ++ ts ++ "\"") >>= callCommand
+                                                 return ("sox " ++  "m." ++ (show t1) ++ "." ++ xs ++ ".wav " ++ (show t1) ++ "." ++ xs ++ ".wav " ++ us) >>= callCommand
+                                  else case xs of
+                                    "," -> do 
+                                             return ("sox -n -r 22.05k -c 1 -b 16 " ++ (show t1) ++ "." ++ xs ++ ".wav delay 0.401 trim 0 0.4") >>= callCommand
+                                    ";" -> do 
+                                             return ("sox -n -r 22.05k -c 1 -b 16 " ++ (show t1) ++ "." ++ xs ++ ".wav delay 0.601 trim 0 0.6") >>= callCommand
+                                    ":" -> do 
+                                             return ("sox -n -r 22.05k -c 1 -b 16 " ++ (show t1) ++ "." ++ xs ++ ".wav delay 0.701 trim 0 0.7") >>= callCommand
+                                    "." -> do 
+                                             return ("sox -n -r 22.05k -c 1 -b 16 " ++ (show t1) ++ "." ++ xs ++ ".wav delay 0.801 trim 0 0.8") >>= callCommand
+                                    "!" -> do 
+                                             return ("sox -n -r 22.05k -c 1 -b 16 " ++ (show t1) ++ "." ++ xs ++ ".wav delay 0.901 trim 0 0.9") >>= callCommand
+                                    "?" -> do 
+                                             return ("sox -n -r 22.05k -c 1 -b 16 " ++ (show t1) ++ "." ++ xs ++ ".wav delay 0.901 trim 0 0.9") >>= callCommand
+                                    "!?" -> do 
+                                             return ("sox -n -r 22.05k -c 1 -b 16 " ++ (show t1) ++ "." ++ xs ++ ".wav delay 1.201 trim 0 1.2") >>= callCommand
+                                    "?!" -> do 
+                                             return ("sox -n -r 22.05k -c 1 -b 16 " ++ (show t1) ++ "." ++ xs ++ ".wav delay 1.201 trim 0 1.2") >>= callCommand
+                                    "–" -> do 
+                                             return ("sox -n -r 22.05k -c 1 -b 16 " ++ (show t1) ++ "." ++ xs ++ ".wav delay 0.751 trim 0 0.75") >>= callCommand
+                                    "—" -> do 
+                                             return ("sox -n -r 22.05k -c 1 -b 16 " ++ (show t1) ++ "." ++ xs ++ ".wav delay 0.851 trim 0 0.85") >>= callCommand
+                                    _ -> let ts = oneToSyllable $ filter (/= 'q') xs in let us = stringDurationLim ts in case head args of
+                                           "1" -> if last xs == 'q'
+                                                    then do
+                                                      return ("espeak -v " ++ ys ++ " " ++ zs ++ " -w m." ++ (show t1) ++ "." ++ ts ++ ".wav \"" ++ ts ++ "\"") >>= callCommand
+                                                      return ("sox " ++  "m." ++ (show t1) ++ "." ++ ts ++ ".wav " ++  (show t1) ++ "." ++ ts ++ ".wav " ++ us ++ " tempo -s 0.7") >>= callCommand
+                                                      addSoftSign $ (show t1) ++ "." ++ ts ++ ".wav"
+                                                    else do
+                                                      if xs == "y"
                                                         then do
-                                                          return ("espeak -v " ++ ys ++ " " ++ zs ++ " -w m." ++ (show t1) ++ "." ++ ts ++ ".wav \"" ++ ts ++ "\"") >>= callCommand
-                                                          return ("sox " ++  "m." ++ (show t1) ++ "." ++ ts ++ ".wav " ++  (show t1) ++ "." ++ ts ++ ".wav " ++ us ++ " tempo -s 0.7") >>= callCommand
-                                                          addSoftSign $ (show t1) ++ "." ++ ts ++ ".wav"
+                                                          return ("espeak -v " ++ ys ++ " " ++ zs ++ " -w m." ++ (show t1) ++ "." ++ xs ++ ".wav \"" ++ ts ++ "\"") >>= callCommand
+                                                          return ("sox " ++  "m." ++ (show t1) ++ "." ++ xs ++ ".wav " ++ (show t1) ++ "." ++ xs ++ ".wav " ++ us ++ " tempo -s 0.7") >>= callCommand
                                                         else do
-                                                          if xs == "y"
-                                                            then do
-                                                              return ("espeak -v " ++ ys ++ " " ++ zs ++ " -w m." ++ (show t1) ++ "." ++ xs ++ ".wav \"" ++ ts ++ "\"") >>= callCommand
-                                                              return ("sox " ++  "m." ++ (show t1) ++ "." ++ xs ++ ".wav " ++ (show t1) ++ "." ++ xs ++ ".wav " ++ us ++ " tempo -s 0.7") >>= callCommand
-                                                            else do
-                                                              return ("espeak -v " ++ ys ++ " " ++ zs ++ " -w m." ++ (show t1) ++ "." ++ xs ++ ".wav \"" ++ ts ++ "\"") >>= callCommand
-                                                              return ("sox " ++  "m." ++ (show t1) ++ "." ++ xs ++ ".wav " ++ (show t1) ++ "." ++ xs ++ ".wav " ++ us ++ " tempo -s 0.7") >>= callCommand
+                                                          return ("espeak -v " ++ ys ++ " " ++ zs ++ " -w m." ++ (show t1) ++ "." ++ xs ++ ".wav \"" ++ ts ++ "\"") >>= callCommand
+                                                          return ("sox " ++  "m." ++ (show t1) ++ "." ++ xs ++ ".wav " ++ (show t1) ++ "." ++ xs ++ ".wav " ++ us ++ " tempo -s 0.7") >>= callCommand
+                                           "2" -> if last xs == 'q'
+                                                    then do
+                                                      return ("espeak -v " ++ ys ++ " " ++ zs ++ " -w m." ++ (show t1) ++ "." ++ ts ++ ".wav \"" ++ ts ++ "\"") >>= callCommand
+                                                      return ("sox " ++  "m." ++ (show t1) ++ "." ++ ts ++ ".wav " ++  (show t1) ++ "." ++ ts ++ ".wav " ++ us ++ " tempo -s 0.8") >>= callCommand
+                                                      addSoftSign $ (show t1) ++ "." ++ ts ++ ".wav"
+                                                    else do
+                                                      if xs == "y"
+                                                        then do
+                                                          return ("espeak -v " ++ ys ++ " " ++ zs ++ " -w m." ++ (show t1) ++ "." ++ xs ++ ".wav \"" ++ ts ++ "\"") >>= callCommand
+                                                          return ("sox " ++  "m." ++ (show t1) ++ "." ++ xs ++ ".wav " ++ (show t1) ++ "." ++ xs ++ ".wav " ++ us ++ " tempo -s 0.8") >>= callCommand
+                                                        else do
+                                                          return ("espeak -v " ++ ys ++ " " ++ zs ++ " -w m." ++ (show t1) ++ "." ++ xs ++ ".wav \"" ++ ts ++ "\"") >>= callCommand
+                                                          return ("sox " ++  "m." ++ (show t1) ++ "." ++ xs ++ ".wav " ++ (show t1) ++ "." ++ xs ++ ".wav " ++ us ++ " tempo -s 0.8") >>= callCommand
+                                           "3" -> if last xs == 'q'
+                                                    then do
+                                                      return ("espeak -v " ++ ys ++ " " ++ zs ++ " -w m." ++ (show t1) ++ "." ++ ts ++ ".wav \"" ++ ts ++ "\"") >>= callCommand
+                                                      return ("sox " ++  "m." ++ (show t1) ++ "." ++ ts ++ ".wav " ++  (show t1) ++ "." ++ ts ++ ".wav " ++ us ++ " tempo -s 0.9") >>= callCommand
+                                                      addSoftSign $ (show t1) ++ "." ++ ts ++ ".wav"
+                                                    else do
+                                                      if xs == "y"
+                                                        then do
+                                                          return ("espeak -v " ++ ys ++ " " ++ zs ++ " -w m." ++ (show t1) ++ "." ++ xs ++ ".wav \"" ++ ts ++ "\"") >>= callCommand
+                                                          return ("sox " ++  "m." ++ (show t1) ++ "." ++ xs ++ ".wav " ++ (show t1) ++ "." ++ xs ++ ".wav " ++ us ++ " tempo -s 0.9") >>= callCommand
+                                                        else do
+                                                          return ("espeak -v " ++ ys ++ " " ++ zs ++ " -w m." ++ (show t1) ++ "." ++ xs ++ ".wav \"" ++ ts ++ "\"") >>= callCommand
+                                                          return ("sox " ++  "m." ++ (show t1) ++ "." ++ xs ++ ".wav " ++ (show t1) ++ "." ++ xs ++ ".wav " ++ us ++ " tempo -s 0.9") >>= callCommand
+                                           _ -> if last xs == 'q'
+                                                  then do
+                                                    return ("espeak -v " ++ ys ++ " " ++ zs ++ " -w m." ++ (show t1) ++ "." ++ ts ++ ".wav \"" ++ ts ++ "\"") >>= callCommand
+                                                    return ("sox " ++  "m." ++ (show t1) ++ "." ++ ts ++ ".wav " ++  (show t1) ++ "." ++ ts ++ ".wav " ++ us ++ " tempo -s 0.65") >>= callCommand
+                                                    addSoftSign $ (show t1) ++ "." ++ ts ++ ".wav"
+                                                  else do
+                                                    if xs == "y"
+                                                      then do
+                                                        return ("espeak -v " ++ ys ++ " " ++ zs ++ " -w m." ++ (show t1) ++ "." ++ xs ++ ".wav \"" ++ ts ++ "\"") >>= callCommand
+                                                        return ("sox " ++  "m." ++ (show t1) ++ "." ++ xs ++ ".wav " ++ (show t1) ++ "." ++ xs ++ ".wav " ++ us ++ " tempo -s 0.65") >>= callCommand
+                                                      else do
+                                                        return ("espeak -v " ++ ys ++ " " ++ zs ++ " -w m." ++ (show t1) ++ "." ++ xs ++ ".wav \"" ++ ts ++ "\"") >>= callCommand
+                                                        return ("sox " ++  "m." ++ (show t1) ++ "." ++ xs ++ ".wav " ++ (show t1) ++ "." ++ xs ++ ".wav " ++ us ++ " tempo -s 0.65") >>= callCommand
     _ -> do
                    t <- time
                    let t1 = 10000000000 + (t `div` 10000000) in
@@ -809,20 +900,27 @@ addSoftSign file = do
 -- Головна програма
 main :: IO ()
 main = do 
-   putStr "Введіть рядок українського тексту. За замовчуванням для багатоскладових слів наголос падатиме на передостанній склад у слові."
-   putStr "Якщо Ви бажаєте змінити наголос, тоді перед словом злитно з ним напишіть натуральне число, яке є порядковим номером складу,"
-   putStr "на який падає наголос, починаючи з першого складу. Наприклад, \"3мальовнИчого\" означатиме, що наголошеним буде склад з \"И\"."
-   putStrLn "Не ставте дефісів або інших розділювачів (у т. ч. пробілів). Не хвилюйтеся, ці числа НЕ будуть озвучені програмою.\n"
-   createSoftSign
    args <- getArgs
-   nI2 <- getContents
-   let pauseW x = do
-             mapM_ (createSoundsForSyllable getCPUTime args) x
-             zz <- getCPUTime
-             let t1 = 10000000000 + (zz `div` 10000000) in
-               if (os == "Windows") 
-                 then do 
-                   return ("sox.exe -n -r 22.05k -c 1 -b 16 " ++ (show t1) ++ ".ee.wav delay 0.015 trim 0 0.014") >>= callCommand
-                 else do
-                   return ("sox -n -r 22.05k -c 1 -b 16 " ++ (show t1) ++ ".ee.wav delay 0.015 trim 0 0.014") >>= callCommand
-     in mapM_ pauseW (map combineSoundsLs3 $ words2 nI2)
+   if (head args == "h") || (head args == "-h")
+     then do
+       putStr "Введіть рядок українського тексту. За замовчуванням для багатоскладових слів наголос падатиме на передостанній склад у слові. "
+       putStr "Якщо Ви бажаєте змінити наголос, тоді перед словом злитно з ним напишіть натуральне число, яке є порядковим номером складу,"
+       putStr "на який падає наголос, починаючи з першого складу. Наприклад, \"3мальовнИчого\" означатиме, що наголошеним буде склад з \"И\". "
+       putStrLn "Не ставте дефісів або інших розділювачів (у т. ч. пробілів). Не хвилюйтеся, ці числа НЕ будуть озвучені програмою. "
+       putStrLn " "
+       putStr "Якщо бажаєте, щоб програма швидше читала деякі склади або літери, то можете ввести як аргументи командного рядка "
+       putStr "одне з чисел 1, або 2, або 3 (кожне наступне з яких дещо прискорює вимову деяких складів та літер порівняно з попереднім, "
+       putStrLn "втім різниця не така велика). "
+     else do
+       createSoftSign
+       nI2 <- getContents
+       let pauseW x = do
+            mapM_ (createSoundsForSyllable getCPUTime args) x
+            zz <- getCPUTime
+            let t1 = 10000000000 + (zz `div` 10000000) in
+              if (os == "Windows") 
+                then do 
+                  return ("sox.exe -n -r 22.05k -c 1 -b 16 " ++ (show t1) ++ ".ee.wav delay 0.015 trim 0 0.014") >>= callCommand
+                else do
+                  return ("sox -n -r 22.05k -c 1 -b 16 " ++ (show t1) ++ ".ee.wav delay 0.015 trim 0 0.014") >>= callCommand
+         in mapM_ pauseW (map combineSoundsLs3 $ words2 nI2)
