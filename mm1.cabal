@@ -2,7 +2,7 @@
 -- see http://haskell.org/cabal/users-guide/
 
 name:                mm1
-version:             0.2.7.0
+version:             0.2.8.0
 synopsis:            Program that reads Ukrainian text using eSpeak and SoX.
 -- description:         
 homepage:            https://github.com/OleksandrZhabenko/mm1
