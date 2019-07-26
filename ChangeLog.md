@@ -66,3 +66,8 @@ the duration of the singular letters.
 
 * Sixth revised B. Added assimilation rules for consonants to the program. Fixed an issue with "mar\maj" syllable. Some optimisations added. The output files have no capital letters in them. Some other minor changes.
 
+## 0.2.8.0  -- 2019-07-26
+
+* Seventh version. Added more proper command line arguments handling and punctuation pauses. The program now can work in 
+two different regimes: as help menu and common usage. Fixed an issue with the Esperanto months abbreviations 
+sounding wrongly. Some minor fixes.
