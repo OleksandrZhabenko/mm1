@@ -75,3 +75,7 @@ sounding wrongly. Some minor fixes.
 ## 0.2.8.1  -- 2019-07-29
 
 * Seventh version revised A. Fixed an issue with empty list in the command line arguments checking.
+
+## 0.2.8.2  -- 2019-07-29
+
+* Seventh version revised B. Fixed an issue with empty list. Added most common punctuation patterns.
