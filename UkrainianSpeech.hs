@@ -24,11 +24,11 @@ import System.Process (callCommand)
 import System.Directory (findExecutable)
 import System.Info (os)
 import System.Environment (getArgs)
-import qualified Data.Char as DC (toLower, isDigit, isAlpha) 
+import qualified Data.Char as DC (toLower, isDigit, isAlpha, isPunctuation, isSpace) 
 import Data.Maybe (Maybe(Just,Nothing))
 import Prelude (String,Char,Bool(True,False),Int,Integer,IO,FilePath,($),($!),(.),(==),(/=),(<),(<=),(&&),(||),not,null,
   fst,snd,toInteger,show,return,(>>=),error,putStr,putStrLn,(+),(*),(-),div,mod,(++),foldr,map,zip,zipWith,take,drop,takeWhile,dropWhile,concat,concatMap,
-    mapM_,foldl1,filter,getContents,elem,last,head,tail,length,fromInteger,words,init,otherwise,and)
+    mapM_,foldl1,filter,getContents,elem,last,head,tail,length,fromInteger,init,otherwise,and,span)
 
 -- Function that primarily converts Ukrainian line into more sounds-based line and more oriented to more using prosodical information
 -- Функція, що початково перетворює український рядок на більш орінтований на звуки рядок і більш орієнтований на використання просодійної інформації
@@ -37,10 +37,16 @@ ukrainianToMoreSounding xs = replaceWithList [Replace (string'fromString "тьс
   Replace (string'fromString "-- ") " ", Replace (string'fromString " -") " ",  Replace (string'fromString "- ") " ", 
     Replace (string'fromString "ья") "ьйа", Replace (string'fromString "ьє") "ьйе", Replace (string'fromString "ью") "ьйу", 
       Replace (string'fromString "ьї") "ьйі", Replace (string'fromString "’я") "ййа", Replace (string'fromString "’є") "ййе", 
-        Replace (string'fromString "’ю") "ййу", Replace (string'fromString "’ї") "ййі",  Replace (string'fromString "щ") "шч", 
-          Replace (string'fromString ",") " ,", Replace (string'fromString ".") " .", Replace (string'fromString ";") " ;", 
-            Replace (string'fromString "!") " !", Replace (string'fromString "?") " ?", Replace (string'fromString ":") " :"] xs
-
+        Replace (string'fromString "’ю") "ййу", Replace (string'fromString "’ї") "ййі",  Replace (string'fromString "щ") "шч"] xs
+              
+-- Function that separates punctuation marks from the words
+-- Функція, яка відділяє пунктуаційні знаки від слів
+separatePunct0 :: String -> String                       
+separatePunct0 = foldr f v
+  where v = []
+        f x ys = if DC.isPunctuation x 
+                          then ' ':x:' ':ys
+                          else x:ys
 
 -- Optimized function to convert Ukrainian "я", "ю", "є" and "ї" into some other String for syllables processing
 -- Оптимізована функція для перетворення українських "я", "ю", "є" та "ї" на деякі інші рядки для обробки складів
@@ -135,7 +141,22 @@ ukrainianLast2 = fst . foldr f v
 -- Функція, яка створює список українських рядків з початкового українського рядка, які можуть бути легко оброблені далі
 words2 :: String -> [String]
 words2 [] = []
-words2 xs = assimilationFirst . words . ukrainianLast2 . ukrainianJottedLast . ukrainianJotted1 .  changeAssimilative . ukrainianToMoreSounding . changeH2X $ map DC.toLower xs
+words2 xs = filter (not . null) $ assimilationFirst $ map (filter (not . DC.isSpace)) $ separatePunct . ukrainianLast2 . ukrainianJottedLast . ukrainianJotted1 .  
+  changeAssimilative . separatePunct0 . ukrainianToMoreSounding . changeH2X $ map DC.toLower xs
+
+-- Function-predicate that checks whether its argument is a punctuation mark or a whitespace
+-- Функція-предикат, яка перевіряє, чи є її аргумент пунктуаційним знаком чи пробілом
+isPunctOrSpace :: Char -> Bool
+isPunctOrSpace x = DC.isPunctuation x || DC.isSpace x
+
+-- Function that separates punctuation from the words for further processing
+-- Функція, що відділяє пунктуацію від слів для подальшої обробки
+separatePunct :: String -> [String]
+separatePunct xs = if null xs 
+                     then []
+                     else if isPunctOrSpace $ head xs
+                            then let z = span isPunctOrSpace xs in (' ':(fst z)):(separatePunct $ snd z)
+                            else let zN = span (not . isPunctOrSpace) xs in fst zN:(separatePunct $ snd zN)
 
 -- Function-predicate that checks whether its argument is either a digit character or a dash
 -- Функція-предикат, що перевіряє, чи її аргумент є символом цифри чи дефісу
@@ -263,11 +284,22 @@ divideConsonants xs = let y = length xs in case y of
 -- Проміжна функція для створення українських складів
 divideToSyllables1 :: String -> [[(String, Char)]]
 divideToSyllables1 xs = concatMap divideConsonants (takeWhile (not . null) (prepareToSyllables xs))
-
+              
+-- Optimized function that is applied to the zero-syllable parts to concatenate the punctuation into the one sample of sounding
+-- Оптимізована функція, що застосовується до нуль-складових слів, щоб з'єднати пунктуаційні знаки в одну частину озвучування
+concatPunct :: [((String, String), (String, Integer))] -> [((String, String), (String, Integer))]
+concatPunct = fst . foldr f v
+  where v = ([], [])
+        f x (ys, xs) = if not . null . fst . fst $ x 
+                         then if isPunctOrSpace (head . fst . fst $ x)
+                                then ([((filter (not . DC.isSpace) (takeWhile isPunctOrSpace $ concatMap (fst . fst) (x:xs)), "esperanto"), ("-z", 0))], x:xs)
+                                else (x:ys, x:xs)
+                         else (x:ys, x:xs)
+                         
 -- Function that takes a Ukrainian String and converts it to the data of the type ((String, String), (String, Integer)) that is used for zero-vowel words
 -- Функція, що отримує на вхід український String і конвертує його на дані типу ((String, String), (String, Integer)), що використовується для слів без голосних
 zeroSyllablePart :: String ->  [((String, String), (String, Integer))]
-zeroSyllablePart xs = map (\x -> if x == "γ" 
+zeroSyllablePart xs =  filter (not . null . fst . fst) $ concatPunct $ map (\x -> if x == "γ" 
   then (("γ", "greek"), ("-z", 0)) 
   else if x == "y" 
     then (("y", "polish"), ("-z", 0)) 
@@ -375,13 +407,18 @@ isVowelEG x = case x of
   'u' -> True
   'i' -> True
   _   -> False
+  
+-- Function-predicate that checks whether its argument is either a vowel or a punctuation mark
+-- Функція-предикат, яка перевіряє, чи є її аргумент голосним або знаком пунктуації
+isVowelOrPunctuation :: Char -> Bool
+isVowelOrPunctuation x = DC.isPunctuation x || isVowelEG x
 
--- Function-predicate that checks whether the hFunctionH must be applied to the [((String, String), (String, Integer))]
--- Функція-предикат, яка перевіряє, чи має бути застосована hFunctionH до [((String, String), (String, Integer))]
+-- Function-predicate that checks whether the hFunctionH must be applied to the ((String, String), (String, Integer))
+-- Функція-предикат, яка перевіряє, чи має бути застосована hFunctionH до ((String, String), (String, Integer))
 pFunctionP :: ((String, String), (String, Integer)) -> Bool
-pFunctionP ((xs, _), (_, _)) = null $ filter isVowelEG xs
+pFunctionP ((xs, _), (_, _)) = null $ filter isVowelOrPunctuation xs
 
--- Function that converts zero-syllable groups of sounds into separate sounds for further processing
+-- Function that converts zero-syllable groups of consonant sounds into separate sounds for further processing
 -- Функція, що перетворює безголосні групи приголосних у окремі звуки для подальшої обробки
 hFunctionH :: ((String, String), (String, Integer)) -> [((String, String), (String, Integer))]
 hFunctionH  (([], _), (_, _)) = []
@@ -482,35 +519,37 @@ oneToSyllable xs = if head xs == 'd'
                 'z' -> "edz"
                 'ĵ' -> "edĵ"
                 _ -> "ed"
-  else case head xs of
-    'p' -> "ep"
-    'r' -> "er"
-    'a' -> "a"
-    'o' -> "o"
-    'v' -> "ev"
-    'l' -> "el"
-    'i' -> "i"
-    'γ' -> "αγ"
-    'n' -> "en"
-    'e' -> "e"
-    'k' -> "ek"
-    'u' -> "u"
-    's' -> "es"
-    'm' -> "em"
-    'y' -> "yy"
-    't' -> "et"                                                    
-    'ĵ' -> "eĵ"
-    'ŝ' -> "eŝ"
-    'ĉ' -> "eĉ"
-    'c' -> "ec"
-    'g' -> "eg"
-    'j' -> "ej"
-    'b' -> "eb"
-    'z' -> "ez"
-    'ĥ' -> "eĥ"
-    'f' -> "ef"
-    'h' -> "eh"
-    _ -> [head xs]
+  else if DC.isPunctuation . head $ xs 
+         then xs
+         else case head xs of
+                'p' -> "ep"
+                'r' -> "er"
+                'a' -> "a"
+                'o' -> "o"
+                'v' -> "ev"
+                'l' -> "el"
+                'i' -> "i"
+                'γ' -> "αγ"
+                'n' -> "en"
+                'e' -> "e"
+                'k' -> "ek"
+                'u' -> "u"
+                's' -> "es"
+                'm' -> "em"
+                'y' -> "yy"
+                't' -> "et"                                                    
+                'ĵ' -> "eĵ"
+                'ŝ' -> "eŝ"
+                'ĉ' -> "eĉ"
+                'c' -> "ec"
+                'g' -> "eg"
+                'j' -> "ej"
+                'b' -> "eb"
+                'z' -> "ez"
+                'ĥ' -> "eĥ"
+                'f' -> "ef"
+                'h' -> "eh"
+                _ -> [head xs]
 
 -- Function that for the Ukrainian syllable represented as ((String, String),(String,Integer)) creates sounds
 -- Функція, що для українського складу представленого як ((String, String),(String,Integer)) створює звуки
@@ -523,26 +562,110 @@ createSoundsForSyllable time args ((xs, ys),(zs, k)) = case k of
                        then do 
                            if null args
                                   then case xs of
-                                    "," -> do 
-                                             return ("sox.exe -n -r 22.05k -c 1 -b 16 " ++ (show t1) ++ "." ++ xs ++ ".wav delay 0.401 trim 0 0.4") >>= callCommand
+                                    "\"(" -> do 
+                                             return ("sox.exe -n -r 22.05k -c 1 -b 16 " ++ (show t1) ++ "." ++ xs ++ ".wav delay 0.301 trim 0 0.3") >>= callCommand         
+                                    "(\"" -> do 
+                                             return ("sox.exe -n -r 22.05k -c 1 -b 16 " ++ (show t1) ++ "." ++ xs ++ ".wav delay 0.301 trim 0 0.3") >>= callCommand                  
+                                    "(" -> do 
+                                             return ("sox.exe -n -r 22.05k -c 1 -b 16 " ++ (show t1) ++ "." ++ xs ++ ".wav delay 0.301 trim 0 0.3") >>= callCommand         
+                                    "\")" -> do 
+                                             return ("sox.exe -n -r 22.05k -c 1 -b 16 " ++ (show t1) ++ "." ++ xs ++ ".wav delay 0.501 trim 0 0.5") >>= callCommand                  
+                                    ")\"" -> do 
+                                             return ("sox.exe -n -r 22.05k -c 1 -b 16 " ++ (show t1) ++ "." ++ xs ++ ".wav delay 0.501 trim 0 0.5") >>= callCommand                  
+                                    ")" -> do 
+                                             return ("sox.exe -n -r 22.05k -c 1 -b 16 " ++ (show t1) ++ "." ++ xs ++ ".wav delay 0.501 trim 0 0.5") >>= callCommand                  
+                                    ",\"" -> do 
+                                             return ("sox.exe -n -r 22.05k -c 1 -b 16 " ++ (show t1) ++ "." ++ xs ++ ".wav delay 0.401 trim 0 0.4") >>= callCommand         
                                     ";" -> do 
                                              return ("sox.exe -n -r 22.05k -c 1 -b 16 " ++ (show t1) ++ "." ++ xs ++ ".wav delay 0.601 trim 0 0.6") >>= callCommand
                                     ":" -> do 
                                              return ("sox.exe -n -r 22.05k -c 1 -b 16 " ++ (show t1) ++ "." ++ xs ++ ".wav delay 0.701 trim 0 0.7") >>= callCommand
+                                    ":\"" -> do 
+                                             return ("sox.exe -n -r 22.05k -c 1 -b 16 " ++ (show t1) ++ "." ++ xs ++ ".wav delay 0.701 trim 0 0.7") >>= callCommand         
                                     "." -> do 
                                              return ("sox.exe -n -r 22.05k -c 1 -b 16 " ++ (show t1) ++ "." ++ xs ++ ".wav delay 0.801 trim 0 0.8") >>= callCommand
+                                    ".\"" -> do 
+                                             return ("sox.exe -n -r 22.05k -c 1 -b 16 " ++ (show t1) ++ "." ++ xs ++ ".wav delay 0.801 trim 0 0.8") >>= callCommand         
+                                    "..." -> do 
+                                             return ("sox.exe -n -r 22.05k -c 1 -b 16 " ++ (show t1) ++ "." ++ xs ++ ".wav delay 0.851 trim 0 0.85") >>= callCommand
+                                    "...\"" -> do 
+                                             return ("sox.exe -n -r 22.05k -c 1 -b 16 " ++ (show t1) ++ "." ++ xs ++ ".wav delay 0.851 trim 0 0.85") >>= callCommand         
+                                    "\"..." -> do 
+                                             return ("sox.exe -n -r 22.05k -c 1 -b 16 " ++ (show t1) ++ "." ++ xs ++ ".wav delay 0.851 trim 0 0.85") >>= callCommand         
+                                    ",.." -> do
+                                               return ("sox.exe -n -r 22.05k -c 1 -b 16 " ++ (show t1) ++ "." ++ xs ++ ".wav delay 0.901 trim 0 0.9") >>= callCommand 
+                                    ",..\"" -> do
+                                               return ("sox.exe -n -r 22.05k -c 1 -b 16 " ++ (show t1) ++ "." ++ xs ++ ".wav delay 0.901 trim 0 0.9") >>= callCommand            
                                     "!" -> do 
                                              return ("sox.exe -n -r 22.05k -c 1 -b 16 " ++ (show t1) ++ "." ++ xs ++ ".wav delay 0.901 trim 0 0.9") >>= callCommand
+                                    "!\"" -> do 
+                                             return ("sox.exe -n -r 22.05k -c 1 -b 16 " ++ (show t1) ++ "." ++ xs ++ ".wav delay 0.901 trim 0 0.9") >>= callCommand         
+                                    "!!" -> do 
+                                             return ("sox.exe -n -r 22.05k -c 1 -b 16 " ++ (show t1) ++ "." ++ xs ++ ".wav delay 1.101 trim 0 1.1") >>= callCommand
+                                    "!!\"" -> do 
+                                             return ("sox.exe -n -r 22.05k -c 1 -b 16 " ++ (show t1) ++ "." ++ xs ++ ".wav delay 1.101 trim 0 1.1") >>= callCommand         
+                                    "!!." -> do 
+                                             return ("sox.exe -n -r 22.05k -c 1 -b 16 " ++ (show t1) ++ "." ++ xs ++ ".wav delay 1.201 trim 0 1.2") >>= callCommand         
+                                    "!!.\"" -> do 
+                                             return ("sox.exe -n -r 22.05k -c 1 -b 16 " ++ (show t1) ++ "." ++ xs ++ ".wav delay 1.201 trim 0 1.2") >>= callCommand                  
+                                    "!!!" -> do 
+                                             return ("sox.exe -n -r 22.05k -c 1 -b 16 " ++ (show t1) ++ "." ++ xs ++ ".wav delay 1.301 trim 0 1.3") >>= callCommand         
+                                    "!!!\"" -> do 
+                                             return ("sox.exe -n -r 22.05k -c 1 -b 16 " ++ (show t1) ++ "." ++ xs ++ ".wav delay 1.301 trim 0 1.3") >>= callCommand                  
+                                    "!.." -> do 
+                                             return ("sox.exe -n -r 22.05k -c 1 -b 16 " ++ (show t1) ++ "." ++ xs ++ ".wav delay 1.001 trim 0 1.0") >>= callCommand                  
+                                    "!..\"" -> do 
+                                             return ("sox.exe -n -r 22.05k -c 1 -b 16 " ++ (show t1) ++ "." ++ xs ++ ".wav delay 1.001 trim 0 1.0") >>= callCommand                           
                                     "?" -> do 
                                              return ("sox.exe -n -r 22.05k -c 1 -b 16 " ++ (show t1) ++ "." ++ xs ++ ".wav delay 0.901 trim 0 0.9") >>= callCommand
+                                    "?\"" -> do 
+                                             return ("sox.exe -n -r 22.05k -c 1 -b 16 " ++ (show t1) ++ "." ++ xs ++ ".wav delay 0.901 trim 0 0.9") >>= callCommand         
+                                    "??" -> do 
+                                             return ("sox.exe -n -r 22.05k -c 1 -b 16 " ++ (show t1) ++ "." ++ xs ++ ".wav delay 1.101 trim 0 1.1") >>= callCommand
+                                    "??\"" -> do 
+                                             return ("sox.exe -n -r 22.05k -c 1 -b 16 " ++ (show t1) ++ "." ++ xs ++ ".wav delay 1.101 trim 0 1.1") >>= callCommand         
+                                    "??." -> do 
+                                             return ("sox.exe -n -r 22.05k -c 1 -b 16 " ++ (show t1) ++ "." ++ xs ++ ".wav delay 1.201 trim 0 1.2") >>= callCommand         
+                                    "??.\"" -> do 
+                                             return ("sox.exe -n -r 22.05k -c 1 -b 16 " ++ (show t1) ++ "." ++ xs ++ ".wav delay 1.201 trim 0 1.2") >>= callCommand                  
+                                    "???" -> do 
+                                             return ("sox.exe -n -r 22.05k -c 1 -b 16 " ++ (show t1) ++ "." ++ xs ++ ".wav delay 1.301 trim 0 1.3") >>= callCommand         
+                                    "???\"" -> do 
+                                             return ("sox.exe -n -r 22.05k -c 1 -b 16 " ++ (show t1) ++ "." ++ xs ++ ".wav delay 1.301 trim 0 1.3") >>= callCommand                  
+                                    "?.." -> do 
+                                             return ("sox.exe -n -r 22.05k -c 1 -b 16 " ++ (show t1) ++ "." ++ xs ++ ".wav delay 1.001 trim 0 1.0") >>= callCommand                           
+                                    "?..\"" -> do 
+                                             return ("sox.exe -n -r 22.05k -c 1 -b 16 " ++ (show t1) ++ "." ++ xs ++ ".wav delay 1.001 trim 0 1.0") >>= callCommand                                    
                                     "!?" -> do 
                                              return ("sox.exe -n -r 22.05k -c 1 -b 16 " ++ (show t1) ++ "." ++ xs ++ ".wav delay 1.201 trim 0 1.2") >>= callCommand
+                                    "!?\"" -> do 
+                                             return ("sox.exe -n -r 22.05k -c 1 -b 16 " ++ (show t1) ++ "." ++ xs ++ ".wav delay 1.201 trim 0 1.2") >>= callCommand         
                                     "?!" -> do 
                                              return ("sox.exe -n -r 22.05k -c 1 -b 16 " ++ (show t1) ++ "." ++ xs ++ ".wav delay 1.201 trim 0 1.2") >>= callCommand
+                                    "?!\"" -> do 
+                                             return ("sox.exe -n -r 22.05k -c 1 -b 16 " ++ (show t1) ++ "." ++ xs ++ ".wav delay 1.201 trim 0 1.2") >>= callCommand         
+                                    "!?." -> do 
+                                             return ("sox.exe -n -r 22.05k -c 1 -b 16 " ++ (show t1) ++ "." ++ xs ++ ".wav delay 1.301 trim 0 1.3") >>= callCommand
+                                    "!?.\"" -> do 
+                                             return ("sox.exe -n -r 22.05k -c 1 -b 16 " ++ (show t1) ++ "." ++ xs ++ ".wav delay 1.301 trim 0 1.3") >>= callCommand         
+                                    "?!." -> do 
+                                             return ("sox.exe -n -r 22.05k -c 1 -b 16 " ++ (show t1) ++ "." ++ xs ++ ".wav delay 1.301 trim 0 1.3") >>= callCommand
+                                    "?!.\"" -> do 
+                                             return ("sox.exe -n -r 22.05k -c 1 -b 16 " ++ (show t1) ++ "." ++ xs ++ ".wav delay 1.301 trim 0 1.3") >>= callCommand         
                                     "–" -> do 
                                              return ("sox.exe -n -r 22.05k -c 1 -b 16 " ++ (show t1) ++ "." ++ xs ++ ".wav delay 0.751 trim 0 0.75") >>= callCommand
+                                    "\",–" -> do 
+                                             return ("sox.exe -n -r 22.05k -c 1 -b 16 " ++ (show t1) ++ "." ++ xs ++ ".wav delay 0.951 trim 0 0.95") >>= callCommand         
                                     "—" -> do 
                                              return ("sox.exe -n -r 22.05k -c 1 -b 16 " ++ (show t1) ++ "." ++ xs ++ ".wav delay 0.851 trim 0 0.85") >>= callCommand
+                                    "\",—" -> do 
+                                             return ("sox.exe -n -r 22.05k -c 1 -b 16 " ++ (show t1) ++ "." ++ xs ++ ".wav delay 0.951 trim 0 0.95") >>= callCommand         
+                                    ",–" -> do 
+                                             return ("sox.exe -n -r 22.05k -c 1 -b 16 " ++ (show t1) ++ "." ++ xs ++ ".wav delay 0.751 trim 0 0.75") >>= callCommand
+                                    ",—" -> do 
+                                             return ("sox.exe -n -r 22.05k -c 1 -b 16 " ++ (show t1) ++ "." ++ xs ++ ".wav delay 0.851 trim 0 0.85") >>= callCommand         
+                                    "," -> do 
+                                             return ("sox.exe -n -r 22.05k -c 1 -b 16 " ++ (show t1) ++ "." ++ xs ++ ".wav delay 0.401 trim 0 0.4") >>= callCommand         
                                     _ -> let ts = oneToSyllable $ filter (/= 'q') xs in let us = stringDurationLim ts in if last xs == 'q'
                                            then do
                                              return ("espeak.exe -v " ++ ys ++ " " ++ zs ++ " -w m." ++ (show t1) ++ "." ++ ts ++ ".wav \"" ++ ts ++ "\"") >>= callCommand
@@ -557,26 +680,110 @@ createSoundsForSyllable time args ((xs, ys),(zs, k)) = case k of
                                                  return ("espeak.exe -v " ++ ys ++ " " ++ zs ++ " -w m." ++ (show t1) ++ "." ++ xs ++ ".wav \"" ++ ts ++ "\"") >>= callCommand
                                                  return ("sox.exe " ++  "m." ++ (show t1) ++ "." ++ xs ++ ".wav " ++ (show t1) ++ "." ++ xs ++ ".wav " ++ us) >>= callCommand
                                   else case xs of
+                                    "(" -> do 
+                                             return ("sox.exe -n -r 22.05k -c 1 -b 16 " ++ (show t1) ++ "." ++ xs ++ ".wav delay 0.301 trim 0 0.3") >>= callCommand
+                                    "\"(" -> do 
+                                             return ("sox.exe -n -r 22.05k -c 1 -b 16 " ++ (show t1) ++ "." ++ xs ++ ".wav delay 0.301 trim 0 0.3") >>= callCommand         
+                                    "(\"" -> do 
+                                             return ("sox.exe -n -r 22.05k -c 1 -b 16 " ++ (show t1) ++ "." ++ xs ++ ".wav delay 0.301 trim 0 0.3") >>= callCommand                  
+                                    ")" -> do 
+                                             return ("sox.exe -n -r 22.05k -c 1 -b 16 " ++ (show t1) ++ "." ++ xs ++ ".wav delay 0.501 trim 0 0.5") >>= callCommand         
+                                    "\")" -> do 
+                                             return ("sox.exe -n -r 22.05k -c 1 -b 16 " ++ (show t1) ++ "." ++ xs ++ ".wav delay 0.501 trim 0 0.5") >>= callCommand                  
+                                    ")\"" -> do 
+                                             return ("sox.exe -n -r 22.05k -c 1 -b 16 " ++ (show t1) ++ "." ++ xs ++ ".wav delay 0.501 trim 0 0.5") >>= callCommand                  
                                     "," -> do 
                                              return ("sox.exe -n -r 22.05k -c 1 -b 16 " ++ (show t1) ++ "." ++ xs ++ ".wav delay 0.401 trim 0 0.4") >>= callCommand
+                                    ",\"" -> do 
+                                             return ("sox.exe -n -r 22.05k -c 1 -b 16 " ++ (show t1) ++ "." ++ xs ++ ".wav delay 0.401 trim 0 0.4") >>= callCommand         
                                     ";" -> do 
                                              return ("sox.exe -n -r 22.05k -c 1 -b 16 " ++ (show t1) ++ "." ++ xs ++ ".wav delay 0.601 trim 0 0.6") >>= callCommand
                                     ":" -> do 
                                              return ("sox.exe -n -r 22.05k -c 1 -b 16 " ++ (show t1) ++ "." ++ xs ++ ".wav delay 0.701 trim 0 0.7") >>= callCommand
+                                    ":\"" -> do 
+                                             return ("sox.exe -n -r 22.05k -c 1 -b 16 " ++ (show t1) ++ "." ++ xs ++ ".wav delay 0.701 trim 0 0.7") >>= callCommand         
                                     "." -> do 
                                              return ("sox.exe -n -r 22.05k -c 1 -b 16 " ++ (show t1) ++ "." ++ xs ++ ".wav delay 0.801 trim 0 0.8") >>= callCommand
+                                    ".\"" -> do 
+                                             return ("sox.exe -n -r 22.05k -c 1 -b 16 " ++ (show t1) ++ "." ++ xs ++ ".wav delay 0.801 trim 0 0.8") >>= callCommand         
+                                    "..." -> do 
+                                             return ("sox.exe -n -r 22.05k -c 1 -b 16 " ++ (show t1) ++ "." ++ xs ++ ".wav delay 0.851 trim 0 0.85") >>= callCommand
+                                    "...\"" -> do 
+                                             return ("sox.exe -n -r 22.05k -c 1 -b 16 " ++ (show t1) ++ "." ++ xs ++ ".wav delay 0.851 trim 0 0.85") >>= callCommand         
+                                    "\"..." -> do 
+                                             return ("sox.exe -n -r 22.05k -c 1 -b 16 " ++ (show t1) ++ "." ++ xs ++ ".wav delay 0.851 trim 0 0.85") >>= callCommand         
+                                    ",.." -> do
+                                               return ("sox.exe -n -r 22.05k -c 1 -b 16 " ++ (show t1) ++ "." ++ xs ++ ".wav delay 0.901 trim 0 0.9") >>= callCommand 
+                                    ",..\"" -> do
+                                               return ("sox.exe -n -r 22.05k -c 1 -b 16 " ++ (show t1) ++ "." ++ xs ++ ".wav delay 0.901 trim 0 0.9") >>= callCommand            
                                     "!" -> do 
                                              return ("sox.exe -n -r 22.05k -c 1 -b 16 " ++ (show t1) ++ "." ++ xs ++ ".wav delay 0.901 trim 0 0.9") >>= callCommand
+                                    "!\"" -> do 
+                                             return ("sox.exe -n -r 22.05k -c 1 -b 16 " ++ (show t1) ++ "." ++ xs ++ ".wav delay 0.901 trim 0 0.9") >>= callCommand         
+                                    "!!" -> do 
+                                             return ("sox.exe -n -r 22.05k -c 1 -b 16 " ++ (show t1) ++ "." ++ xs ++ ".wav delay 1.101 trim 0 1.1") >>= callCommand
+                                    "!!\"" -> do 
+                                             return ("sox.exe -n -r 22.05k -c 1 -b 16 " ++ (show t1) ++ "." ++ xs ++ ".wav delay 1.101 trim 0 1.1") >>= callCommand         
+                                    "!!." -> do 
+                                             return ("sox.exe -n -r 22.05k -c 1 -b 16 " ++ (show t1) ++ "." ++ xs ++ ".wav delay 1.201 trim 0 1.2") >>= callCommand         
+                                    "!!.\"" -> do 
+                                             return ("sox.exe -n -r 22.05k -c 1 -b 16 " ++ (show t1) ++ "." ++ xs ++ ".wav delay 1.201 trim 0 1.2") >>= callCommand                  
+                                    "!!!" -> do 
+                                             return ("sox.exe -n -r 22.05k -c 1 -b 16 " ++ (show t1) ++ "." ++ xs ++ ".wav delay 1.301 trim 0 1.3") >>= callCommand         
+                                    "!!!\"" -> do 
+                                             return ("sox.exe -n -r 22.05k -c 1 -b 16 " ++ (show t1) ++ "." ++ xs ++ ".wav delay 1.301 trim 0 1.3") >>= callCommand                  
+                                    "!.." -> do 
+                                             return ("sox.exe -n -r 22.05k -c 1 -b 16 " ++ (show t1) ++ "." ++ xs ++ ".wav delay 1.001 trim 0 1.0") >>= callCommand                  
+                                    "!..\"" -> do 
+                                             return ("sox.exe -n -r 22.05k -c 1 -b 16 " ++ (show t1) ++ "." ++ xs ++ ".wav delay 1.001 trim 0 1.0") >>= callCommand                           
                                     "?" -> do 
                                              return ("sox.exe -n -r 22.05k -c 1 -b 16 " ++ (show t1) ++ "." ++ xs ++ ".wav delay 0.901 trim 0 0.9") >>= callCommand
+                                    "?\"" -> do 
+                                             return ("sox.exe -n -r 22.05k -c 1 -b 16 " ++ (show t1) ++ "." ++ xs ++ ".wav delay 0.901 trim 0 0.9") >>= callCommand         
+                                    "??" -> do 
+                                             return ("sox.exe -n -r 22.05k -c 1 -b 16 " ++ (show t1) ++ "." ++ xs ++ ".wav delay 1.101 trim 0 1.1") >>= callCommand
+                                    "??\"" -> do 
+                                             return ("sox.exe -n -r 22.05k -c 1 -b 16 " ++ (show t1) ++ "." ++ xs ++ ".wav delay 1.101 trim 0 1.1") >>= callCommand         
+                                    "??." -> do 
+                                             return ("sox.exe -n -r 22.05k -c 1 -b 16 " ++ (show t1) ++ "." ++ xs ++ ".wav delay 1.201 trim 0 1.2") >>= callCommand         
+                                    "??.\"" -> do 
+                                             return ("sox.exe -n -r 22.05k -c 1 -b 16 " ++ (show t1) ++ "." ++ xs ++ ".wav delay 1.201 trim 0 1.2") >>= callCommand                  
+                                    "???" -> do 
+                                             return ("sox.exe -n -r 22.05k -c 1 -b 16 " ++ (show t1) ++ "." ++ xs ++ ".wav delay 1.301 trim 0 1.3") >>= callCommand         
+                                    "???\"" -> do 
+                                             return ("sox.exe -n -r 22.05k -c 1 -b 16 " ++ (show t1) ++ "." ++ xs ++ ".wav delay 1.301 trim 0 1.3") >>= callCommand                  
+                                    "?.." -> do 
+                                             return ("sox.exe -n -r 22.05k -c 1 -b 16 " ++ (show t1) ++ "." ++ xs ++ ".wav delay 1.001 trim 0 1.0") >>= callCommand                           
+                                    "?..\"" -> do 
+                                             return ("sox.exe -n -r 22.05k -c 1 -b 16 " ++ (show t1) ++ "." ++ xs ++ ".wav delay 1.001 trim 0 1.0") >>= callCommand                                    
                                     "!?" -> do 
                                              return ("sox.exe -n -r 22.05k -c 1 -b 16 " ++ (show t1) ++ "." ++ xs ++ ".wav delay 1.201 trim 0 1.2") >>= callCommand
+                                    "!?\"" -> do 
+                                             return ("sox.exe -n -r 22.05k -c 1 -b 16 " ++ (show t1) ++ "." ++ xs ++ ".wav delay 1.201 trim 0 1.2") >>= callCommand         
                                     "?!" -> do 
                                              return ("sox.exe -n -r 22.05k -c 1 -b 16 " ++ (show t1) ++ "." ++ xs ++ ".wav delay 1.201 trim 0 1.2") >>= callCommand
+                                    "?!\"" -> do 
+                                             return ("sox.exe -n -r 22.05k -c 1 -b 16 " ++ (show t1) ++ "." ++ xs ++ ".wav delay 1.201 trim 0 1.2") >>= callCommand         
+                                    "!?." -> do 
+                                             return ("sox.exe -n -r 22.05k -c 1 -b 16 " ++ (show t1) ++ "." ++ xs ++ ".wav delay 1.301 trim 0 1.3") >>= callCommand
+                                    "!?.\"" -> do 
+                                             return ("sox.exe -n -r 22.05k -c 1 -b 16 " ++ (show t1) ++ "." ++ xs ++ ".wav delay 1.301 trim 0 1.3") >>= callCommand         
+                                    "?!." -> do 
+                                             return ("sox.exe -n -r 22.05k -c 1 -b 16 " ++ (show t1) ++ "." ++ xs ++ ".wav delay 1.301 trim 0 1.3") >>= callCommand
+                                    "?!.\"" -> do 
+                                             return ("sox.exe -n -r 22.05k -c 1 -b 16 " ++ (show t1) ++ "." ++ xs ++ ".wav delay 1.301 trim 0 1.3") >>= callCommand         
                                     "–" -> do 
                                              return ("sox.exe -n -r 22.05k -c 1 -b 16 " ++ (show t1) ++ "." ++ xs ++ ".wav delay 0.751 trim 0 0.75") >>= callCommand
+                                    "\",–" -> do 
+                                             return ("sox.exe -n -r 22.05k -c 1 -b 16 " ++ (show t1) ++ "." ++ xs ++ ".wav delay 0.951 trim 0 0.95") >>= callCommand         
                                     "—" -> do 
                                              return ("sox.exe -n -r 22.05k -c 1 -b 16 " ++ (show t1) ++ "." ++ xs ++ ".wav delay 0.851 trim 0 0.85") >>= callCommand
+                                    "\",—" -> do 
+                                             return ("sox.exe -n -r 22.05k -c 1 -b 16 " ++ (show t1) ++ "." ++ xs ++ ".wav delay 0.951 trim 0 0.95") >>= callCommand         
+                                    ",–" -> do 
+                                             return ("sox.exe -n -r 22.05k -c 1 -b 16 " ++ (show t1) ++ "." ++ xs ++ ".wav delay 0.751 trim 0 0.75") >>= callCommand
+                                    ",—" -> do 
+                                             return ("sox.exe -n -r 22.05k -c 1 -b 16 " ++ (show t1) ++ "." ++ xs ++ ".wav delay 0.851 trim 0 0.85") >>= callCommand         
                                     _ -> let ts = oneToSyllable $ filter (/= 'q') xs in let us = stringDurationLim ts in case head args of
                                            "1" -> if last xs == 'q'
                                                     then do
@@ -633,26 +840,110 @@ createSoundsForSyllable time args ((xs, ys),(zs, k)) = case k of
                        else do 
                          if null args
                                   then case xs of
+                                    "(" -> do 
+                                             return ("sox -n -r 22.05k -c 1 -b 16 " ++ (show t1) ++ "." ++ xs ++ ".wav delay 0.301 trim 0 0.3") >>= callCommand
+                                    "\"(" -> do 
+                                             return ("sox -n -r 22.05k -c 1 -b 16 " ++ (show t1) ++ "." ++ xs ++ ".wav delay 0.301 trim 0 0.3") >>= callCommand         
+                                    "(\"" -> do 
+                                             return ("sox -n -r 22.05k -c 1 -b 16 " ++ (show t1) ++ "." ++ xs ++ ".wav delay 0.301 trim 0 0.3") >>= callCommand                  
+                                    ")" -> do 
+                                             return ("sox -n -r 22.05k -c 1 -b 16 " ++ (show t1) ++ "." ++ xs ++ ".wav delay 0.501 trim 0 0.5") >>= callCommand         
+                                    "\")" -> do 
+                                             return ("sox -n -r 22.05k -c 1 -b 16 " ++ (show t1) ++ "." ++ xs ++ ".wav delay 0.501 trim 0 0.5") >>= callCommand                  
+                                    ")\"" -> do 
+                                             return ("sox -n -r 22.05k -c 1 -b 16 " ++ (show t1) ++ "." ++ xs ++ ".wav delay 0.501 trim 0 0.5") >>= callCommand                  
                                     "," -> do 
                                              return ("sox -n -r 22.05k -c 1 -b 16 " ++ (show t1) ++ "." ++ xs ++ ".wav delay 0.401 trim 0 0.4") >>= callCommand
+                                    ",\"" -> do 
+                                             return ("sox -n -r 22.05k -c 1 -b 16 " ++ (show t1) ++ "." ++ xs ++ ".wav delay 0.401 trim 0 0.4") >>= callCommand         
                                     ";" -> do 
                                              return ("sox -n -r 22.05k -c 1 -b 16 " ++ (show t1) ++ "." ++ xs ++ ".wav delay 0.601 trim 0 0.6") >>= callCommand
                                     ":" -> do 
                                              return ("sox -n -r 22.05k -c 1 -b 16 " ++ (show t1) ++ "." ++ xs ++ ".wav delay 0.701 trim 0 0.7") >>= callCommand
+                                    ":\"" -> do 
+                                             return ("sox -n -r 22.05k -c 1 -b 16 " ++ (show t1) ++ "." ++ xs ++ ".wav delay 0.701 trim 0 0.7") >>= callCommand         
                                     "." -> do 
                                              return ("sox -n -r 22.05k -c 1 -b 16 " ++ (show t1) ++ "." ++ xs ++ ".wav delay 0.801 trim 0 0.8") >>= callCommand
+                                    ".\"" -> do 
+                                             return ("sox -n -r 22.05k -c 1 -b 16 " ++ (show t1) ++ "." ++ xs ++ ".wav delay 0.801 trim 0 0.8") >>= callCommand         
+                                    "..." -> do 
+                                             return ("sox -n -r 22.05k -c 1 -b 16 " ++ (show t1) ++ "." ++ xs ++ ".wav delay 0.851 trim 0 0.85") >>= callCommand
+                                    "...\"" -> do 
+                                             return ("sox -n -r 22.05k -c 1 -b 16 " ++ (show t1) ++ "." ++ xs ++ ".wav delay 0.851 trim 0 0.85") >>= callCommand         
+                                    "\"..." -> do 
+                                             return ("sox -n -r 22.05k -c 1 -b 16 " ++ (show t1) ++ "." ++ xs ++ ".wav delay 0.851 trim 0 0.85") >>= callCommand         
+                                    ",.." -> do
+                                               return ("sox -n -r 22.05k -c 1 -b 16 " ++ (show t1) ++ "." ++ xs ++ ".wav delay 0.901 trim 0 0.9") >>= callCommand 
+                                    ",..\"" -> do
+                                               return ("sox -n -r 22.05k -c 1 -b 16 " ++ (show t1) ++ "." ++ xs ++ ".wav delay 0.901 trim 0 0.9") >>= callCommand            
                                     "!" -> do 
                                              return ("sox -n -r 22.05k -c 1 -b 16 " ++ (show t1) ++ "." ++ xs ++ ".wav delay 0.901 trim 0 0.9") >>= callCommand
+                                    "!\"" -> do 
+                                             return ("sox -n -r 22.05k -c 1 -b 16 " ++ (show t1) ++ "." ++ xs ++ ".wav delay 0.901 trim 0 0.9") >>= callCommand         
+                                    "!!" -> do 
+                                             return ("sox -n -r 22.05k -c 1 -b 16 " ++ (show t1) ++ "." ++ xs ++ ".wav delay 1.101 trim 0 1.1") >>= callCommand
+                                    "!!\"" -> do 
+                                             return ("sox -n -r 22.05k -c 1 -b 16 " ++ (show t1) ++ "." ++ xs ++ ".wav delay 1.101 trim 0 1.1") >>= callCommand         
+                                    "!!." -> do 
+                                             return ("sox -n -r 22.05k -c 1 -b 16 " ++ (show t1) ++ "." ++ xs ++ ".wav delay 1.201 trim 0 1.2") >>= callCommand         
+                                    "!!.\"" -> do 
+                                             return ("sox -n -r 22.05k -c 1 -b 16 " ++ (show t1) ++ "." ++ xs ++ ".wav delay 1.201 trim 0 1.2") >>= callCommand                  
+                                    "!!!" -> do 
+                                             return ("sox -n -r 22.05k -c 1 -b 16 " ++ (show t1) ++ "." ++ xs ++ ".wav delay 1.301 trim 0 1.3") >>= callCommand         
+                                    "!!!\"" -> do 
+                                             return ("sox -n -r 22.05k -c 1 -b 16 " ++ (show t1) ++ "." ++ xs ++ ".wav delay 1.301 trim 0 1.3") >>= callCommand                  
+                                    "!.." -> do 
+                                             return ("sox -n -r 22.05k -c 1 -b 16 " ++ (show t1) ++ "." ++ xs ++ ".wav delay 1.001 trim 0 1.0") >>= callCommand                  
+                                    "!..\"" -> do 
+                                             return ("sox -n -r 22.05k -c 1 -b 16 " ++ (show t1) ++ "." ++ xs ++ ".wav delay 1.001 trim 0 1.0") >>= callCommand                           
                                     "?" -> do 
                                              return ("sox -n -r 22.05k -c 1 -b 16 " ++ (show t1) ++ "." ++ xs ++ ".wav delay 0.901 trim 0 0.9") >>= callCommand
+                                    "?\"" -> do 
+                                             return ("sox -n -r 22.05k -c 1 -b 16 " ++ (show t1) ++ "." ++ xs ++ ".wav delay 0.901 trim 0 0.9") >>= callCommand         
+                                    "??" -> do 
+                                             return ("sox -n -r 22.05k -c 1 -b 16 " ++ (show t1) ++ "." ++ xs ++ ".wav delay 1.101 trim 0 1.1") >>= callCommand
+                                    "??\"" -> do 
+                                             return ("sox -n -r 22.05k -c 1 -b 16 " ++ (show t1) ++ "." ++ xs ++ ".wav delay 1.101 trim 0 1.1") >>= callCommand         
+                                    "??." -> do 
+                                             return ("sox -n -r 22.05k -c 1 -b 16 " ++ (show t1) ++ "." ++ xs ++ ".wav delay 1.201 trim 0 1.2") >>= callCommand         
+                                    "??.\"" -> do 
+                                             return ("sox -n -r 22.05k -c 1 -b 16 " ++ (show t1) ++ "." ++ xs ++ ".wav delay 1.201 trim 0 1.2") >>= callCommand                  
+                                    "???" -> do 
+                                             return ("sox -n -r 22.05k -c 1 -b 16 " ++ (show t1) ++ "." ++ xs ++ ".wav delay 1.301 trim 0 1.3") >>= callCommand         
+                                    "???\"" -> do 
+                                             return ("sox -n -r 22.05k -c 1 -b 16 " ++ (show t1) ++ "." ++ xs ++ ".wav delay 1.301 trim 0 1.3") >>= callCommand                  
+                                    "?.." -> do 
+                                             return ("sox -n -r 22.05k -c 1 -b 16 " ++ (show t1) ++ "." ++ xs ++ ".wav delay 1.001 trim 0 1.0") >>= callCommand                           
+                                    "?..\"" -> do 
+                                             return ("sox -n -r 22.05k -c 1 -b 16 " ++ (show t1) ++ "." ++ xs ++ ".wav delay 1.001 trim 0 1.0") >>= callCommand                                    
                                     "!?" -> do 
                                              return ("sox -n -r 22.05k -c 1 -b 16 " ++ (show t1) ++ "." ++ xs ++ ".wav delay 1.201 trim 0 1.2") >>= callCommand
+                                    "!?\"" -> do 
+                                             return ("sox -n -r 22.05k -c 1 -b 16 " ++ (show t1) ++ "." ++ xs ++ ".wav delay 1.201 trim 0 1.2") >>= callCommand         
                                     "?!" -> do 
                                              return ("sox -n -r 22.05k -c 1 -b 16 " ++ (show t1) ++ "." ++ xs ++ ".wav delay 1.201 trim 0 1.2") >>= callCommand
+                                    "?!\"" -> do 
+                                             return ("sox -n -r 22.05k -c 1 -b 16 " ++ (show t1) ++ "." ++ xs ++ ".wav delay 1.201 trim 0 1.2") >>= callCommand         
+                                    "!?." -> do 
+                                             return ("sox -n -r 22.05k -c 1 -b 16 " ++ (show t1) ++ "." ++ xs ++ ".wav delay 1.301 trim 0 1.3") >>= callCommand
+                                    "!?.\"" -> do 
+                                             return ("sox -n -r 22.05k -c 1 -b 16 " ++ (show t1) ++ "." ++ xs ++ ".wav delay 1.301 trim 0 1.3") >>= callCommand         
+                                    "?!." -> do 
+                                             return ("sox -n -r 22.05k -c 1 -b 16 " ++ (show t1) ++ "." ++ xs ++ ".wav delay 1.301 trim 0 1.3") >>= callCommand
+                                    "?!.\"" -> do 
+                                             return ("sox -n -r 22.05k -c 1 -b 16 " ++ (show t1) ++ "." ++ xs ++ ".wav delay 1.301 trim 0 1.3") >>= callCommand         
                                     "–" -> do 
                                              return ("sox -n -r 22.05k -c 1 -b 16 " ++ (show t1) ++ "." ++ xs ++ ".wav delay 0.751 trim 0 0.75") >>= callCommand
+                                    "\",–" -> do 
+                                             return ("sox -n -r 22.05k -c 1 -b 16 " ++ (show t1) ++ "." ++ xs ++ ".wav delay 0.951 trim 0 0.95") >>= callCommand         
                                     "—" -> do 
                                              return ("sox -n -r 22.05k -c 1 -b 16 " ++ (show t1) ++ "." ++ xs ++ ".wav delay 0.851 trim 0 0.85") >>= callCommand
+                                    "\",—" -> do 
+                                             return ("sox -n -r 22.05k -c 1 -b 16 " ++ (show t1) ++ "." ++ xs ++ ".wav delay 0.951 trim 0 0.95") >>= callCommand         
+                                    ",–" -> do 
+                                             return ("sox -n -r 22.05k -c 1 -b 16 " ++ (show t1) ++ "." ++ xs ++ ".wav delay 0.751 trim 0 0.75") >>= callCommand
+                                    ",—" -> do 
+                                             return ("sox -n -r 22.05k -c 1 -b 16 " ++ (show t1) ++ "." ++ xs ++ ".wav delay 0.851 trim 0 0.85") >>= callCommand         
                                     _ -> let ts = oneToSyllable $ filter (/= 'q') xs in let us = stringDurationLim ts in if last xs == 'q'
                                            then do
                                              return ("espeak -v " ++ ys ++ " " ++ zs ++ " -w m." ++ (show t1) ++ "." ++ ts ++ ".wav \"" ++ ts ++ "\"") >>= callCommand
@@ -667,26 +958,110 @@ createSoundsForSyllable time args ((xs, ys),(zs, k)) = case k of
                                                  return ("espeak -v " ++ ys ++ " " ++ zs ++ " -w m." ++ (show t1) ++ "." ++ xs ++ ".wav \"" ++ ts ++ "\"") >>= callCommand
                                                  return ("sox " ++  "m." ++ (show t1) ++ "." ++ xs ++ ".wav " ++ (show t1) ++ "." ++ xs ++ ".wav " ++ us) >>= callCommand
                                   else case xs of
+                                    "(" -> do 
+                                             return ("sox -n -r 22.05k -c 1 -b 16 " ++ (show t1) ++ "." ++ xs ++ ".wav delay 0.301 trim 0 0.3") >>= callCommand
+                                    "\"(" -> do 
+                                             return ("sox -n -r 22.05k -c 1 -b 16 " ++ (show t1) ++ "." ++ xs ++ ".wav delay 0.301 trim 0 0.3") >>= callCommand         
+                                    "(\"" -> do 
+                                             return ("sox -n -r 22.05k -c 1 -b 16 " ++ (show t1) ++ "." ++ xs ++ ".wav delay 0.301 trim 0 0.3") >>= callCommand                  
+                                    ")" -> do 
+                                             return ("sox -n -r 22.05k -c 1 -b 16 " ++ (show t1) ++ "." ++ xs ++ ".wav delay 0.501 trim 0 0.5") >>= callCommand         
+                                    "\")" -> do 
+                                             return ("sox -n -r 22.05k -c 1 -b 16 " ++ (show t1) ++ "." ++ xs ++ ".wav delay 0.501 trim 0 0.5") >>= callCommand                  
+                                    ")\"" -> do 
+                                             return ("sox -n -r 22.05k -c 1 -b 16 " ++ (show t1) ++ "." ++ xs ++ ".wav delay 0.501 trim 0 0.5") >>= callCommand                  
                                     "," -> do 
                                              return ("sox -n -r 22.05k -c 1 -b 16 " ++ (show t1) ++ "." ++ xs ++ ".wav delay 0.401 trim 0 0.4") >>= callCommand
+                                    ",\"" -> do 
+                                             return ("sox -n -r 22.05k -c 1 -b 16 " ++ (show t1) ++ "." ++ xs ++ ".wav delay 0.401 trim 0 0.4") >>= callCommand         
                                     ";" -> do 
                                              return ("sox -n -r 22.05k -c 1 -b 16 " ++ (show t1) ++ "." ++ xs ++ ".wav delay 0.601 trim 0 0.6") >>= callCommand
                                     ":" -> do 
                                              return ("sox -n -r 22.05k -c 1 -b 16 " ++ (show t1) ++ "." ++ xs ++ ".wav delay 0.701 trim 0 0.7") >>= callCommand
+                                    ":\"" -> do 
+                                             return ("sox -n -r 22.05k -c 1 -b 16 " ++ (show t1) ++ "." ++ xs ++ ".wav delay 0.701 trim 0 0.7") >>= callCommand         
                                     "." -> do 
                                              return ("sox -n -r 22.05k -c 1 -b 16 " ++ (show t1) ++ "." ++ xs ++ ".wav delay 0.801 trim 0 0.8") >>= callCommand
+                                    ".\"" -> do 
+                                             return ("sox -n -r 22.05k -c 1 -b 16 " ++ (show t1) ++ "." ++ xs ++ ".wav delay 0.801 trim 0 0.8") >>= callCommand         
+                                    "..." -> do 
+                                             return ("sox -n -r 22.05k -c 1 -b 16 " ++ (show t1) ++ "." ++ xs ++ ".wav delay 0.851 trim 0 0.85") >>= callCommand
+                                    "...\"" -> do 
+                                             return ("sox -n -r 22.05k -c 1 -b 16 " ++ (show t1) ++ "." ++ xs ++ ".wav delay 0.851 trim 0 0.85") >>= callCommand         
+                                    "\"..." -> do 
+                                             return ("sox -n -r 22.05k -c 1 -b 16 " ++ (show t1) ++ "." ++ xs ++ ".wav delay 0.851 trim 0 0.85") >>= callCommand         
+                                    ",.." -> do
+                                               return ("sox -n -r 22.05k -c 1 -b 16 " ++ (show t1) ++ "." ++ xs ++ ".wav delay 0.901 trim 0 0.9") >>= callCommand 
+                                    ",..\"" -> do
+                                               return ("sox -n -r 22.05k -c 1 -b 16 " ++ (show t1) ++ "." ++ xs ++ ".wav delay 0.901 trim 0 0.9") >>= callCommand            
                                     "!" -> do 
                                              return ("sox -n -r 22.05k -c 1 -b 16 " ++ (show t1) ++ "." ++ xs ++ ".wav delay 0.901 trim 0 0.9") >>= callCommand
+                                    "!\"" -> do 
+                                             return ("sox -n -r 22.05k -c 1 -b 16 " ++ (show t1) ++ "." ++ xs ++ ".wav delay 0.901 trim 0 0.9") >>= callCommand         
+                                    "!!" -> do 
+                                             return ("sox -n -r 22.05k -c 1 -b 16 " ++ (show t1) ++ "." ++ xs ++ ".wav delay 1.101 trim 0 1.1") >>= callCommand
+                                    "!!\"" -> do 
+                                             return ("sox -n -r 22.05k -c 1 -b 16 " ++ (show t1) ++ "." ++ xs ++ ".wav delay 1.101 trim 0 1.1") >>= callCommand         
+                                    "!!." -> do 
+                                             return ("sox -n -r 22.05k -c 1 -b 16 " ++ (show t1) ++ "." ++ xs ++ ".wav delay 1.201 trim 0 1.2") >>= callCommand         
+                                    "!!.\"" -> do 
+                                             return ("sox -n -r 22.05k -c 1 -b 16 " ++ (show t1) ++ "." ++ xs ++ ".wav delay 1.201 trim 0 1.2") >>= callCommand                  
+                                    "!!!" -> do 
+                                             return ("sox -n -r 22.05k -c 1 -b 16 " ++ (show t1) ++ "." ++ xs ++ ".wav delay 1.301 trim 0 1.3") >>= callCommand         
+                                    "!!!\"" -> do 
+                                             return ("sox -n -r 22.05k -c 1 -b 16 " ++ (show t1) ++ "." ++ xs ++ ".wav delay 1.301 trim 0 1.3") >>= callCommand                  
+                                    "!.." -> do 
+                                             return ("sox -n -r 22.05k -c 1 -b 16 " ++ (show t1) ++ "." ++ xs ++ ".wav delay 1.001 trim 0 1.0") >>= callCommand                  
+                                    "!..\"" -> do 
+                                             return ("sox -n -r 22.05k -c 1 -b 16 " ++ (show t1) ++ "." ++ xs ++ ".wav delay 1.001 trim 0 1.0") >>= callCommand                           
                                     "?" -> do 
                                              return ("sox -n -r 22.05k -c 1 -b 16 " ++ (show t1) ++ "." ++ xs ++ ".wav delay 0.901 trim 0 0.9") >>= callCommand
+                                    "?\"" -> do 
+                                             return ("sox -n -r 22.05k -c 1 -b 16 " ++ (show t1) ++ "." ++ xs ++ ".wav delay 0.901 trim 0 0.9") >>= callCommand         
+                                    "??" -> do 
+                                             return ("sox -n -r 22.05k -c 1 -b 16 " ++ (show t1) ++ "." ++ xs ++ ".wav delay 1.101 trim 0 1.1") >>= callCommand
+                                    "??\"" -> do 
+                                             return ("sox -n -r 22.05k -c 1 -b 16 " ++ (show t1) ++ "." ++ xs ++ ".wav delay 1.101 trim 0 1.1") >>= callCommand         
+                                    "??." -> do 
+                                             return ("sox -n -r 22.05k -c 1 -b 16 " ++ (show t1) ++ "." ++ xs ++ ".wav delay 1.201 trim 0 1.2") >>= callCommand         
+                                    "??.\"" -> do 
+                                             return ("sox -n -r 22.05k -c 1 -b 16 " ++ (show t1) ++ "." ++ xs ++ ".wav delay 1.201 trim 0 1.2") >>= callCommand                  
+                                    "???" -> do 
+                                             return ("sox -n -r 22.05k -c 1 -b 16 " ++ (show t1) ++ "." ++ xs ++ ".wav delay 1.301 trim 0 1.3") >>= callCommand         
+                                    "???\"" -> do 
+                                             return ("sox -n -r 22.05k -c 1 -b 16 " ++ (show t1) ++ "." ++ xs ++ ".wav delay 1.301 trim 0 1.3") >>= callCommand                  
+                                    "?.." -> do 
+                                             return ("sox -n -r 22.05k -c 1 -b 16 " ++ (show t1) ++ "." ++ xs ++ ".wav delay 1.001 trim 0 1.0") >>= callCommand                           
+                                    "?..\"" -> do 
+                                             return ("sox -n -r 22.05k -c 1 -b 16 " ++ (show t1) ++ "." ++ xs ++ ".wav delay 1.001 trim 0 1.0") >>= callCommand                                    
                                     "!?" -> do 
                                              return ("sox -n -r 22.05k -c 1 -b 16 " ++ (show t1) ++ "." ++ xs ++ ".wav delay 1.201 trim 0 1.2") >>= callCommand
+                                    "!?\"" -> do 
+                                             return ("sox -n -r 22.05k -c 1 -b 16 " ++ (show t1) ++ "." ++ xs ++ ".wav delay 1.201 trim 0 1.2") >>= callCommand         
                                     "?!" -> do 
                                              return ("sox -n -r 22.05k -c 1 -b 16 " ++ (show t1) ++ "." ++ xs ++ ".wav delay 1.201 trim 0 1.2") >>= callCommand
+                                    "?!\"" -> do 
+                                             return ("sox -n -r 22.05k -c 1 -b 16 " ++ (show t1) ++ "." ++ xs ++ ".wav delay 1.201 trim 0 1.2") >>= callCommand         
+                                    "!?." -> do 
+                                             return ("sox -n -r 22.05k -c 1 -b 16 " ++ (show t1) ++ "." ++ xs ++ ".wav delay 1.301 trim 0 1.3") >>= callCommand
+                                    "!?.\"" -> do 
+                                             return ("sox -n -r 22.05k -c 1 -b 16 " ++ (show t1) ++ "." ++ xs ++ ".wav delay 1.301 trim 0 1.3") >>= callCommand         
+                                    "?!." -> do 
+                                             return ("sox -n -r 22.05k -c 1 -b 16 " ++ (show t1) ++ "." ++ xs ++ ".wav delay 1.301 trim 0 1.3") >>= callCommand
+                                    "?!.\"" -> do 
+                                             return ("sox -n -r 22.05k -c 1 -b 16 " ++ (show t1) ++ "." ++ xs ++ ".wav delay 1.301 trim 0 1.3") >>= callCommand         
                                     "–" -> do 
                                              return ("sox -n -r 22.05k -c 1 -b 16 " ++ (show t1) ++ "." ++ xs ++ ".wav delay 0.751 trim 0 0.75") >>= callCommand
+                                    "\",–" -> do 
+                                             return ("sox -n -r 22.05k -c 1 -b 16 " ++ (show t1) ++ "." ++ xs ++ ".wav delay 0.951 trim 0 0.95") >>= callCommand         
                                     "—" -> do 
                                              return ("sox -n -r 22.05k -c 1 -b 16 " ++ (show t1) ++ "." ++ xs ++ ".wav delay 0.851 trim 0 0.85") >>= callCommand
+                                    "\",—" -> do 
+                                             return ("sox -n -r 22.05k -c 1 -b 16 " ++ (show t1) ++ "." ++ xs ++ ".wav delay 0.951 trim 0 0.95") >>= callCommand         
+                                    ",–" -> do 
+                                             return ("sox -n -r 22.05k -c 1 -b 16 " ++ (show t1) ++ "." ++ xs ++ ".wav delay 0.751 trim 0 0.75") >>= callCommand
+                                    ",—" -> do 
+                                             return ("sox -n -r 22.05k -c 1 -b 16 " ++ (show t1) ++ "." ++ xs ++ ".wav delay 0.851 trim 0 0.85") >>= callCommand         
                                     _ -> let ts = oneToSyllable $ filter (/= 'q') xs in let us = stringDurationLim ts in case head args of
                                            "1" -> if last xs == 'q'
                                                     then do
@@ -819,8 +1194,8 @@ stringToInteger xs = foldl1 ((+) . (*10)) $! (map (charToDigit) $ xs)
 -- Функція, що власне перетворює українське слово у Esperanto рядок для подальшого озвучування                        
 changeToEsperanto :: String -> String
 changeToEsperanto [] = []
-changeToEsperanto x = concatMap change2 ( replaceWithList [Replace (string'fromString "цьцьа") "csja", Replace (string'fromString "ьо") "jo", 
-  Replace (string'fromString "ьй") "jj", Replace (string'fromString "ьа") "ja", Replace (string'fromString "ьу") "ju", Replace (string'fromString "ье") "je"] x)
+changeToEsperanto xs = concatMap change2 $ replaceWithList [Replace (string'fromString "цьцьа") "csja", Replace (string'fromString "ьо") "jo", 
+  Replace (string'fromString "ьй") "jj", Replace (string'fromString "ьа") "ja", Replace (string'fromString "ьу") "ju", Replace (string'fromString "ье") "je"] xs
 
 -- Function to convert char-by-char the rest of the preprocessed Ukrainian word into the Esperanto sounding string
 -- Функція для перетворення символ за символом решти попердньо обробленого українського слова у радок Esperanto для озвучування
