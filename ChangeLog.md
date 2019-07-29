@@ -71,3 +71,7 @@ the duration of the singular letters.
 * Seventh version. Added more proper command line arguments handling and punctuation pauses. The program now can work in 
 two different regimes: as help menu and common usage. Fixed an issue with the Esperanto months abbreviations 
 sounding wrongly. Some minor fixes.
+
+## 0.2.8.1  -- 2019-07-29
+
+* Seventh version revised A. Fixed an issue with empty list in the command line arguments checking.
