@@ -86,3 +86,7 @@ sounding wrongly. Some minor fixes.
 by syllables and sounds or only by sounds (internally, the program divides words into syllables in both cases). Fixed an issue 
 with wrongly sounding long syllables. Added a punctuation constraint for assimilation rules. The function that creates 
 sounds and punctuation is completely rewritten using functions with multiple arguments.
+
+## 0.2.9.1  -- 2019-07-31
+
+* Eigth version revised A. Fixed an issue with missed checking for OS. 
