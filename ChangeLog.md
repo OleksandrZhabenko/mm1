@@ -79,3 +79,10 @@ sounding wrongly. Some minor fixes.
 ## 0.2.8.2  -- 2019-07-29
 
 * Seventh version revised B. Fixed an issue with empty list. Added most common punctuation patterns.
+
+## 0.2.9.0  -- 2019-07-31
+
+* Eigth version. Added opportunity to read text by sounds. You can now choose whether it would be better to read it 
+by syllables and sounds or only by sounds (internally, the program divides words into syllables in both cases). Fixed an issue 
+with wrongly sounding long syllables. Added a punctuation constraint for assimilation rules. The function that creates 
+sounds and punctuation is completely rewritten using functions with multiple arguments.
