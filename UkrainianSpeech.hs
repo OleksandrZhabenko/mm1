@@ -26,9 +26,9 @@ import System.Info (os)
 import System.Environment (getArgs)
 import qualified Data.Char as DC (toLower, isDigit, isAlpha, isPunctuation, isSpace) 
 import Data.Maybe (Maybe(Just,Nothing))
-import Prelude (Double,String,Char,Bool(True,False),Int,Integer,IO,FilePath,($),($!),(.),(==),(/=),(<),(<=),(>),(&&),(||),not,null,
+import Prelude (Double,String,Char,Bool(True,False),Int,Integer,IO,FilePath,($),($!),(.),(==),(/=),(<),(<=),(>),(>=),(&&),(||),not,null,
   fst,snd,toInteger,show,return,(>>=),error,putStr,putStrLn,(+),(*),(-),div,mod,(++),foldr,map,zip,zipWith,take,drop,takeWhile,dropWhile,concat,concatMap,
-    mapM_,foldl1,filter,getContents,elem,last,head,tail,length,fromInteger,init,otherwise,and,span)
+    mapM_,foldl1,filter,getContents,elem,last,head,tail,length,fromInteger,init,otherwise,and,or,span)
 
 -- Function that primarily converts Ukrainian line into more sounds-based line and more oriented to more using prosodical information
 -- Функція, що початково перетворює український рядок на більш орінтований на звуки рядок і більш орієнтований на використання просодійної інформації
@@ -142,8 +142,14 @@ ukrainianLast2 = fst . foldr f v
 words2 :: String -> [String]
 words2 [] = []
 words2 xs = filter (not . null) $ assimilationFirst $ map (filter (not . DC.isSpace)) $ separatePunct . ukrainianLast2 . ukrainianJottedLast . ukrainianJotted1 .  
-  changeAssimilative . separatePunct0 . ukrainianToMoreSounding . changeH2X $ filter (\x -> and [x /= '\"', x /= '\8216', x /= '\8217', 
-    x /= '\8218', x /= '\8219', x /= '\8220', x /= '\8221', x /= '\8222', x /= '\8223']) $ map DC.toLower xs
+  changeAssimilative . separatePunct0 . ukrainianToMoreSounding . changeH2X $ filter (\x -> or [x >= '\x0020' && x <= '\x0022', x >= '\x0026' && x <= '\x003B', 
+    x >= '\x003F' && x <= '\x005B', x == '\x005D', x >= '\x0061' && x <= '\x007D', x >= '\x0008' && x <= '\x000D', x == '\x00AB', x == '\x00BB', x == '\x0404', 
+      x >= '\x0406' && x <= '\x0407', x >= '\x0410' && x <= '\x0429', x == '\x042C', x >= '\x042E' && x <= '\x0449', x== '\x044C', x >= '\x044E' && x <= '\x044F', 
+        x == '\x0454', x >= '\x0456' && x <= '\x0457', x >= '\x2002' && x <= '\x2014', x == '\x2026', x >= '\x2028' && x <= '\x2029', x >= '\x2047' && x <= '\x2049', 
+          x >= '\x20A0' && x <= '\x20B9', x == '\x2103', x == '\x2109', x == '\x2122']) $ map (\y -> case y of 
+            '[' -> '(' 
+            ']' -> ')'
+            _  -> DC.toLower y) xs
 
 -- Function-predicate that checks whether its argument is a punctuation mark or a whitespace
 -- Функція-предикат, яка перевіряє, чи є її аргумент пунктуаційним знаком чи пробілом
@@ -459,23 +465,24 @@ hDivideMonths2 ((xs, ys), (zs, k)) = case xs of
 -- Function that prepares a String for processing by the eSpeak and SoX for non-zero-syllable words
 -- Функція, яка готує слово з голосним для подальшої обробки  eSpeak та SoX
 combineSoundsLs3 :: String -> [((String, String), (String, Integer))]
-combineSoundsLs3 xs = concatSoftSign $ concatMap hDivideMonths2 $ bGroups pFunctionP hFunctionH $ combineSoundsLs xs
+combineSoundsLs3 xs = concatMap hDivideMonths2 $ concatSoftSign $ bGroups pFunctionP hFunctionH $ combineSoundsLs xs
 
 -- Function that prepares a String for processing by the eSpeak and SoX if args include "0" or "-0"
 -- Функція, яка готує слово з голосним для подальшої обробки  eSpeak та SoX, якщо args включають "0" або "-0"
 combineSoundsLs30 :: String -> [((String, String), (String, Integer))]
-combineSoundsLs30 xs = concatSoftSign $ concatMap hDivideMonths2 $ bGroups0 hFunctionH $ combineSoundsLs xs
+combineSoundsLs30 xs = concatMap hDivideMonths2 $ concatSoftSign $ bGroups0 hFunctionH $ combineSoundsLs xs
 
 -- Function that concatenates alone soft sign with the previous letter (Esperanto or Greek)
 -- Функція, яка з'єднує ізольований м'який знак з попереднім приголосним (есперанто чи грецькою)
 concatSoftSign ::  [((String, String), (String, Integer))] ->  [((String, String), (String, Integer))]
 concatSoftSign [] = []
-concatSoftSign [x] = [x]
-concatSoftSign (x:y:xs) = case fst . fst $ y of
-  "q" -> if (fst . fst $ x) == "γ"
-           then x:concatSoftSign xs
-           else (((fst . fst $ x) ++ (fst . fst $ y), "esperanto" ), snd x):concatSoftSign xs
-  _ -> x:concatSoftSign (y:xs)
+concatSoftSign (x:xs) = if null xs 
+  then [x]
+  else case fst . fst . head $ xs of
+    "q" -> if (fst . fst $ x) == "γ"
+             then x:concatSoftSign (tail xs)
+             else (((fst . fst $ x) ++ "q", "esperanto" ), snd x):concatSoftSign (tail xs)
+    _ -> x:concatSoftSign xs
               
 -- Function that is used to create String that is a parameter effect to get a needed duration of the sound
 -- Функція, що використовується для створення String, що є параметричним ефектом, щоб отримати звук потрібної тривалості
@@ -630,7 +637,7 @@ ________________________________________________________________________________
 -- Function that is used to create punctuation pauses
 -- Функція, що використовується для створення пунктуаційних пауз
 punctuationPauseLength :: Integer -> String -> String -> String -> [String] -> IO ()
-punctuationPauseLength t1 xs ys zs args = punctL x0 x1 x2 x3 x4 x5 x6 x7 x8 x9 t1 xs ys zs args
+punctuationPauseLength t1 xs ys zs args = punctL (foldl1 ((+) . (*10)) $! [x0,x1,x2,x3,x4,x5,x6,x7,x8,x9]) t1 xs ys zs args
   where x0 = toInteger . length $ filter (== '(') xs
         x1 = toInteger . length $ filter (== ')') xs
         x2 = toInteger . length $ filter (== ',') xs
@@ -645,7 +652,7 @@ punctuationPauseLength t1 xs ys zs args = punctL x0 x1 x2 x3 x4 x5 x6 x7 x8 x9 t
 -- Function that is used to create punctuation pauses if args include "1", or "2", or "3"
 -- Функція, що використовується для створення пунктуаційних пауз, якщо args включають "1", або "2", або "3"
 punctuationPauseLength1 :: Integer -> String -> String -> String -> [String] -> IO ()
-punctuationPauseLength1 t1 xs ys zs args = punctL11 x0 x1 x2 x3 x4 x5 x6 x7 x8 x9 t1 xs ys zs args
+punctuationPauseLength1 t1 xs ys zs args = punctL11 (foldl1 ((+) . (*10)) $! [x0,x1,x2,x3,x4,x5,x6,x7,x8,x9]) t1 xs ys zs args
   where x0 = toInteger . length $ filter (== '(') xs
         x1 = toInteger . length $ filter (== ')') xs
         x2 = toInteger . length $ filter (== ',') xs
@@ -669,32 +676,32 @@ punctL1 x t1 xs = do
 
 -- Function that considers a number of punctuation marks for proper pause creation
 -- Функція, яка бере до уваги кількість пунктуаційних знаків для правильного створення пауз        
-punctL :: Integer -> Integer -> Integer -> Integer -> Integer -> Integer -> Integer -> Integer -> Integer -> Integer -> Integer -> String -> String -> String -> [String] -> IO ()
-punctL 1 0 0 0 0 0 0 0 0 0 t1 xs _ _ _ = punctL1 0.3 t1 xs
-punctL 0 1 0 0 0 0 0 0 0 0 t1 xs _ _ _ = punctL1 0.5 t1 xs
-punctL 0 0 1 0 0 0 0 0 0 0 t1 xs _ _ _ = punctL1 0.4 t1 xs
-punctL 0 0 0 1 0 0 0 0 0 0 t1 xs _ _ _ = punctL1 0.8 t1 xs
-punctL 0 0 0 0 1 0 0 0 0 0 t1 xs _ _ _ = punctL1 0.7 t1 xs
-punctL 0 0 0 0 0 1 0 0 0 0 t1 xs _ _ _ = punctL1 0.6 t1 xs
-punctL 0 0 0 3 0 0 0 0 0 0 t1 xs _ _ _ = punctL1 0.9 t1 xs
-punctL 0 0 0 0 0 0 1 0 0 0 t1 xs _ _ _ = punctL1 0.9 t1 xs
-punctL 0 0 0 0 0 0 0 1 0 0 t1 xs _ _ _ = punctL1 0.9 t1 xs
-punctL 0 0 0 0 0 0 0 0 1 0 t1 xs _ _ _ = punctL1 0.75 t1 xs
-punctL 0 0 0 0 0 0 0 0 0 1 t1 xs _ _ _ = punctL1 0.85 t1 xs
-punctL 0 0 1 2 0 0 0 0 0 0 t1 xs _ _ _ = punctL1 0.9 t1 xs
-punctL 0 0 0 0 0 0 2 0 0 0 t1 xs _ _ _ = punctL1 1.1 t1 xs
-punctL 0 0 0 1 0 0 2 0 0 0 t1 xs _ _ _ = punctL1 1.2 t1 xs
-punctL 0 0 0 0 0 0 3 0 0 0 t1 xs _ _ _ = punctL1 1.3 t1 xs
-punctL 0 0 0 2 0 0 1 0 0 0 t1 xs _ _ _ = punctL1 1.0 t1 xs
-punctL 0 0 0 0 0 0 0 2 0 0 t1 xs _ _ _ = punctL1 1.1 t1 xs
-punctL 0 0 0 1 0 0 0 2 0 0 t1 xs _ _ _ = punctL1 1.2 t1 xs
-punctL 0 0 0 0 0 0 0 3 0 0 t1 xs _ _ _ = punctL1 1.3 t1 xs
-punctL 0 0 0 2 0 0 0 1 0 0 t1 xs _ _ _ = punctL1 1.0 t1 xs
-punctL 0 0 0 0 0 0 1 1 0 0 t1 xs _ _ _ = punctL1 1.2 t1 xs
-punctL 0 0 0 1 0 0 1 1 0 0 t1 xs _ _ _ = punctL1 1.3 t1 xs
-punctL 0 0 1 0 0 0 0 0 1 0 t1 xs _ _ _ = punctL1 0.95 t1 xs
-punctL 0 0 1 0 0 0 0 0 0 1 t1 xs _ _ _ = punctL1 0.95 t1 xs
-punctL _ _ _ _ _ _ _ _ _ _ t1 xs ys zs _ = if os == "Windows"
+punctL :: Integer -> Integer -> String -> String -> String -> [String] -> IO ()
+punctL 1000000000 t1 xs _ _ _ = punctL1 0.3 t1 xs
+punctL 100000000 t1 xs _ _ _ = punctL1 0.5 t1 xs
+punctL 10000000 t1 xs _ _ _ = punctL1 0.4 t1 xs
+punctL 1000000 t1 xs _ _ _ = punctL1 0.8 t1 xs
+punctL 100000 t1 xs _ _ _ = punctL1 0.7 t1 xs
+punctL 10000 t1 xs _ _ _ = punctL1 0.6 t1 xs
+punctL 3000000 t1 xs _ _ _ = punctL1 0.9 t1 xs
+punctL 1000 t1 xs _ _ _ = punctL1 0.9 t1 xs
+punctL 100 t1 xs _ _ _ = punctL1 0.9 t1 xs
+punctL 10 t1 xs _ _ _ = punctL1 0.75 t1 xs
+punctL 1 t1 xs _ _ _ = punctL1 0.85 t1 xs
+punctL 12000000 t1 xs _ _ _ = punctL1 0.9 t1 xs
+punctL 2000 t1 xs _ _ _ = punctL1 1.1 t1 xs
+punctL 1002000 t1 xs _ _ _ = punctL1 1.2 t1 xs
+punctL 3000 t1 xs _ _ _ = punctL1 1.3 t1 xs
+punctL 2001000 t1 xs _ _ _ = punctL1 1.0 t1 xs
+punctL 200 t1 xs _ _ _ = punctL1 1.1 t1 xs
+punctL 1000200 t1 xs _ _ _ = punctL1 1.2 t1 xs
+punctL 300 t1 xs _ _ _ = punctL1 1.3 t1 xs
+punctL 2000100 t1 xs _ _ _ = punctL1 1.0 t1 xs
+punctL 1100 t1 xs _ _ _ = punctL1 1.2 t1 xs
+punctL 1001100 t1 xs _ _ _ = punctL1 1.3 t1 xs
+punctL 10000010 t1 xs _ _ _ = punctL1 0.95 t1 xs
+punctL 10000001 t1 xs _ _ _ = punctL1 0.95 t1 xs
+punctL _ t1 xs ys zs _ = if os == "Windows"
                                              then let ts = oneToSyllable $ filter (/= 'q') xs in let us = stringDurationLim ts in if last xs == 'q'
                                                     then do
                                                       return ("espeak.exe -v " ++ ys ++ " " ++ zs ++ " -w m." ++ (show t1) ++ "." ++ ts ++ ".wav \"" ++ ts ++ "\"") >>= callCommand
@@ -726,32 +733,32 @@ punctL _ _ _ _ _ _ _ _ _ _ t1 xs ys zs _ = if os == "Windows"
 
 -- Function that considers a number of punctuation marks for proper pause creation
 -- Функція, яка бере до уваги кількість пунктуаційних знаків для правильного створення пауз                                                                         
-punctL11 :: Integer -> Integer -> Integer -> Integer -> Integer -> Integer -> Integer -> Integer -> Integer -> Integer -> Integer -> String -> String -> String -> [String] -> IO ()
-punctL11 1 0 0 0 0 0 0 0 0 0 t1 xs _ _ _  = punctL1 0.3 t1 xs
-punctL11 0 1 0 0 0 0 0 0 0 0 t1 xs _ _ _  = punctL1 0.5 t1 xs
-punctL11 0 0 1 0 0 0 0 0 0 0 t1 xs _ _ _  = punctL1 0.4 t1 xs
-punctL11 0 0 0 1 0 0 0 0 0 0 t1 xs _ _ _  = punctL1 0.8 t1 xs
-punctL11 0 0 0 0 1 0 0 0 0 0 t1 xs _ _ _  = punctL1 0.7 t1 xs
-punctL11 0 0 0 0 0 1 0 0 0 0 t1 xs _ _ _  = punctL1 0.6 t1 xs
-punctL11 0 0 0 3 0 0 0 0 0 0 t1 xs _ _ _  = punctL1 0.9 t1 xs
-punctL11 0 0 0 0 0 0 1 0 0 0 t1 xs _ _ _  = punctL1 0.9 t1 xs
-punctL11 0 0 0 0 0 0 0 1 0 0 t1 xs _ _ _  = punctL1 0.9 t1 xs
-punctL11 0 0 0 0 0 0 0 0 1 0 t1 xs _ _ _  = punctL1 0.75 t1 xs
-punctL11 0 0 0 0 0 0 0 0 0 1 t1 xs _ _ _  = punctL1 0.85 t1 xs
-punctL11 0 0 1 2 0 0 0 0 0 0 t1 xs _ _ _  = punctL1 0.9 t1 xs
-punctL11 0 0 0 0 0 0 2 0 0 0 t1 xs _ _ _  = punctL1 1.1 t1 xs
-punctL11 0 0 0 1 0 0 2 0 0 0 t1 xs _ _ _  = punctL1 1.2 t1 xs
-punctL11 0 0 0 0 0 0 3 0 0 0 t1 xs _ _ _  = punctL1 1.3 t1 xs
-punctL11 0 0 0 2 0 0 1 0 0 0 t1 xs _ _ _  = punctL1 1.0 t1 xs
-punctL11 0 0 0 0 0 0 0 2 0 0 t1 xs _ _ _  = punctL1 1.1 t1 xs
-punctL11 0 0 0 1 0 0 0 2 0 0 t1 xs _ _ _  = punctL1 1.2 t1 xs
-punctL11 0 0 0 0 0 0 0 3 0 0 t1 xs _ _ _  = punctL1 1.3 t1 xs
-punctL11 0 0 0 2 0 0 0 1 0 0 t1 xs _ _ _  = punctL1 1.0 t1 xs
-punctL11 0 0 0 0 0 0 1 1 0 0 t1 xs _ _ _  = punctL1 1.2 t1 xs
-punctL11 0 0 0 1 0 0 1 1 0 0 t1 xs _ _ _  = punctL1 1.3 t1 xs
-punctL11 0 0 1 0 0 0 0 0 1 0 t1 xs _ _ _  = punctL1 0.95 t1 xs
-punctL11 0 0 1 0 0 0 0 0 0 1 t1 xs _ _ _  = punctL1 0.95 t1 xs
-punctL11 _ _ _ _ _ _ _ _ _ _ t1 xs ys zs args  = if os == "Windows"
+punctL11 :: Integer -> Integer -> String -> String -> String -> [String] -> IO ()
+punctL11 1000000000 t1 xs _ _ _  = punctL1 0.3 t1 xs
+punctL11 100000000 t1 xs _ _ _  = punctL1 0.5 t1 xs
+punctL11 10000000 t1 xs _ _ _  = punctL1 0.4 t1 xs
+punctL11 1000000 t1 xs _ _ _  = punctL1 0.8 t1 xs
+punctL11 100000 t1 xs _ _ _  = punctL1 0.7 t1 xs
+punctL11 10000 t1 xs _ _ _  = punctL1 0.6 t1 xs
+punctL11 3000000 t1 xs _ _ _  = punctL1 0.9 t1 xs
+punctL11 1000 t1 xs _ _ _  = punctL1 0.9 t1 xs
+punctL11 100 t1 xs _ _ _  = punctL1 0.9 t1 xs
+punctL11 10 t1 xs _ _ _  = punctL1 0.75 t1 xs
+punctL11 1 t1 xs _ _ _  = punctL1 0.85 t1 xs
+punctL11 12000000 t1 xs _ _ _  = punctL1 0.9 t1 xs
+punctL11 2000 t1 xs _ _ _  = punctL1 1.1 t1 xs
+punctL11 1002000 t1 xs _ _ _  = punctL1 1.2 t1 xs
+punctL11 3000 t1 xs _ _ _  = punctL1 1.3 t1 xs
+punctL11 2001000 t1 xs _ _ _  = punctL1 1.0 t1 xs
+punctL11 200 t1 xs _ _ _  = punctL1 1.1 t1 xs
+punctL11 1000200 t1 xs _ _ _  = punctL1 1.2 t1 xs
+punctL11 300 t1 xs _ _ _  = punctL1 1.3 t1 xs
+punctL11 2000100 t1 xs _ _ _  = punctL1 1.0 t1 xs
+punctL11 1100 t1 xs _ _ _  = punctL1 1.2 t1 xs
+punctL11 1001100 t1 xs _ _ _  = punctL1 1.3 t1 xs
+punctL11 10000010 t1 xs _ _ _  = punctL1 0.95 t1 xs
+punctL11 10000001 t1 xs _ _ _  = punctL1 0.95 t1 xs
+punctL11 _ t1 xs ys zs args  = if os == "Windows"
                                      then let ts = oneToSyllable $ filter (/= 'q') xs in let us = stringDurationLim ts in case head args of
                                             "1" -> if last xs == 'q'
                                                      then do
