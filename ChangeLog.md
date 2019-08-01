@@ -90,3 +90,10 @@ sounds and punctuation is completely rewritten using functions with multiple arg
 ## 0.2.9.1  -- 2019-07-31
 
 * Eigth version revised A. Fixed an issue with missed checking for OS. 
+
+## 0.2.9.2  -- 2019-08-01
+
+* Eigth version revised B. Added filter for Unicode symbols to prevent from some extra symbols being substituted. 
+Fixed an issues with wrongly sounding parts of syllables. Added a special conversion for '\[' and '\]'. Partially 
+optimized a function for punctuation pauses.
+
