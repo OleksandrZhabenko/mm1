@@ -97,3 +97,7 @@ sounds and punctuation is completely rewritten using functions with multiple arg
 Fixed an issues with wrongly sounding parts of syllables. Added a special conversion for '\[' and '\]'. Partially 
 optimized a function for punctuation pauses.
 
+## 0.2.9.3  -- 2019-08-03
+
+* Eigth version revised C. Made some optimizations and shortened the code length to make it more readable and shorter.
+
