@@ -11,8 +11,10 @@ cabal install bytestring
 
 Для користувачів Windows
 
-Потрібно у всіх командах у файлі, який зараз читаєте, додати до першого слова суфікс .exe
-Крім того, потрібно переконатися, що всі ці програми видимі для виконання в терміналі (папки, де знаходяться ці файли .exe ), іншими словами папки входять до змінної PATH.
+Можливо, Вам потрібно буде додати до кожної команди для терміналу тут до кожного першого слова у рядку (назва програми) 
+та до програми mm1 суфікс .exe. Спробуйте спочатку без нього, але якщо не виходить, додайте. 
+Крім того, потрібно переконатися, що програми eSpeak та SoX видимі для виконання в терміналі (папки, 
+де знаходяться ці файли .exe ), іншими словами папки входять до змінної PATH. Надалі це нагадування опускається.
 
 Встановлення
 
@@ -25,13 +27,11 @@ cabal install bytestring
 
 ghc -O2 -Wall -Wextra -dynamic UkrainianSpeech.hs -o mm1
 
-(Для користувачів Windows): 
-ghc.exe -O2 -Wall -Wextra -dynamic UkrainianSpeech.hs -o mm1.exe
-
 (+ Для користувачів Unix): 
 strip --strip-unneeded mm1
 
-Скопіюйте отриманий файл mm1 (відповідно mm1.exe) у папку, в якій маєте права на запис, виконання, і вміст якої входить у змінну PATH.
+Скопіюйте отриманий файл mm1 (відповідно mm1.exe) у папку, в якій маєте права на запис, виконання, 
+і вміст якої входить у змінну PATH.
 
 2. З використанням cabal
 
@@ -41,19 +41,11 @@ strip --strip-unneeded mm1
 cabal configure --enable-executable-dynamic -O2 --enable-executable-stripping
 cabal build
 
-(Для користувачів Windows):
-
-cabal.exe configure
-cabal.exe build
-
 Використання
 
 Запустіть програму в терміналі, набравши 
 
 mm1
-
-(Для користувачів Windows): 
-mm1.exe
 
 і введіть рядок тексту українською мовою. Натисніть Enter. Ви маєте бути в папці, в якій у Вас є права на читання і запис.
 
@@ -71,15 +63,3 @@ play speech.flac
 
 play speech.flac tempo 1.4
 
-(Для користувачів Windows):
-sox.exe *.wav speech.flac rate -m 44100 bandpass 360 10 bandreject 300 10 gain 10 channels 2 earwax gain 7 dither -S
-play.exe speech.flac 
-
-Якщо Ви бажаєте трохи усміхнутися, тоді замість попередніх двох команд можете ввести наступні:
-
-sox.exe *.wav speech.flac rate -m 44100 bandpass 360 10 bandreject 300 10 gain 10 channels 2 earwax gain 7 dither -S
-play.exe speech.flac 
-
-Щоб прискорити відтворення файлу, можна скористатися командою на зразок:
-
-play.exe speech.flac tempo 1.4
