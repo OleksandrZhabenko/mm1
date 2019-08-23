@@ -16,6 +16,9 @@ In other words, these directories are included into the environment variable PAT
 
 Installation
 
+Note for Windows and other OS with .exe files: it might be needed to change the listed below terminal commands so that every first word in a line (a program name) and mm1 both have an .exe suffix appended to them. You can check without it as follows, and if it is
+not successful, use the suffix. This notification is not further mentioned.
+
 1. Without cabal usage
 
 You can compile either a static version or a dynamic. For the last one, please, use a compiler flag -dynamic as follows.
@@ -23,10 +26,6 @@ You can compile either a static version or a dynamic. For the last one, please, 
 Copy the files into the directory where you have permissions to write and execute files. Then run in the terminal
 
 ghc -O2 -Wall -Wextra -dynamic UkrainianSpeech.hs -o mm1
-
-(For Windows users):
-
-ghc.exe -O2 -Wall -Wextra -dynamic UkrainianSpeech.hs -o mm1.exe
 
 (+ For Unices users): 
 strip --strip-unneeded mm1
@@ -41,20 +40,11 @@ So, run in the terminal in the directory of the source code
 cabal configure --enable-executable-dynamic -O2 --enable-executable-stripping
 cabal build
 
-(For Windows users):
-
-cabal.exe configure
-cabal.exe build
-
 Usage
 
 Run the program in the terminal typing
 
 mm1
-
-(For Windows users):
-
-mm1.exe 
 
 and enter a string of Ukrainian text. Press Enter. You must be in the directory where you have permissions to read and write.
 
@@ -72,15 +62,4 @@ To speed up the playback, you can use a command like:
 
 play speech.flac tempo 1.4
 
-(For Windows users):
-sox.exe 1*.wav speech.flac rate -m 44100 bandpass 360 10 bandreject 300 10 gain 10 channels 2 earwax gain 7 dither -S
-play.exe speech.flac 
 
-If you would like to have some fun, you can enter not the previous two commands, but the following ones:
-
-sox.exe *.wav speech.flac rate -m 44100 bandpass 360 10 bandreject 300 10 gain 10 channels 2 earwax gain 7 dither -S
-play.exe speech.flac 
-
-To speed up the playback, you can use a command like:
-
-play.exe speech.flac tempo 1.4
