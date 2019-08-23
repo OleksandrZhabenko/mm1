@@ -1,12 +1,13 @@
 Передумови встановлення
 
 Встановлені програми GHC, cabal, eSpeak та SoX. 
-Потрібно також завчасно встановити бібліотеки system-info, system-directory і text-replace. Для цього можна виконати команду в терміналі 
+Потрібно також завчасно встановити бібліотеки system-info, system-directory і bytestring. 
+Зазвчиай, вони надаються разом з основною версією GHC. Інакше, для цього можна виконати команду в терміналі 
 
 cabal update
 cabal install system-info
 cabal install system-directory
-cabal install text-replace
+cabal install bytestring
 
 Для користувачів Windows
 
@@ -17,12 +18,15 @@ cabal install text-replace
 
 1. Без використання cabal
 
-Скопіюйте файли у папку, в якій маєте права на запис та виконання. Виконайте команду в терміналі 
+Скопіюйте файли у папку, в якій маєте права на запис та виконання. 
+Ви можете скомпілювати як статичну, так і динамічну версії програми. Для останньої, будь ласка, 
+використовуйте -dynamic, як у наступних рядках. 
+Виконайте команду в терміналі 
 
-ghc -O3 -Wall -dynamic UkrainianSpeech.hs -o mm1
+ghc -O2 -Wall -Wextra -dynamic UkrainianSpeech.hs -o mm1
 
 (Для користувачів Windows): 
-ghc.exe -O3 -Wall -dynamic UkrainianSpeech.hs -o mm1.exe
+ghc.exe -O2 -Wall -Wextra -dynamic UkrainianSpeech.hs -o mm1.exe
 
 (+ Для користувачів Unix): 
 strip --strip-unneeded mm1
