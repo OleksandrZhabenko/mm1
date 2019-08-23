@@ -101,3 +101,10 @@ optimized a function for punctuation pauses.
 
 * Eigth version revised C. Made some optimizations and shortened the code length to make it more readable and shorter.
 
+## 0.3.0.0  -- 2019-08-23
+
+* Ninth version. The program were completely rewritten with performance and further improvements and additions in mind. Removed Text.Replace as a dependency, added Data.ByteSring as a dependency. The program now uses a special conversion to 8bit characters and a lot of functions were rewritten. Added the possibility to read separate numbers in the text by naming 
+their separate digits in Ukrainian Nominative clause. Moreover, the program now supports reading by letters the written in 
+Latin-1 words asseming the English language for them.
+
+
