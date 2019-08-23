@@ -111,5 +111,8 @@ Latin-1 words asseming the English language for them.
 
 * Tenth version. Added some extra documentation and more to the existing one.
 
+## 0.3.2.0  -- 2019-08-24
 
+* Eleventh version. Changed the mechanism how it it checked whether the .exe suffix is needed for espeak ond sox executables. Earlier there could be some difficulties for users with this issue. Now, it should work for all enough good
+conditions.
 
