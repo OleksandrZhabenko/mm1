@@ -107,4 +107,9 @@ optimized a function for punctuation pauses.
 their separate digits in Ukrainian Nominative clause. Moreover, the program now supports reading by letters the written in 
 Latin-1 words asseming the English language for them.
 
+## 0.3.1.0  -- 2019-08-23
+
+* Tenth version. Added some extra documentation and more to the existing one.
+
+
 
