@@ -1,12 +1,12 @@
 Prerequisites
 
 They are installed programs GHC, cabal, eSpeak and SoX.
-It is needed also firstly to install libraries system-info, system-directory and text-replace. You can run in the terminal for this:
+It is needed also firstly to install libraries system-info, system-directory and bytestring. They are supplied with the basic GHC installation as a rule. In other case, you can run in the terminal for this:
 
 cabal update
 cabal install system-info
 cabal install system-directory
-cabal install text-replace
+cabal install bytestring
 
 For Windows Users
 
@@ -18,13 +18,15 @@ Installation
 
 1. Without cabal usage
 
+You can compile either a static version or a dynamic. For the last one, please, use a compiler flag -dynamic as follows.
+
 Copy the files into the directory where you have permissions to write and execute files. Then run in the terminal
 
-ghc -O3 -Wall -dynamic UkrainianSpeech.hs -o mm1
+ghc -O2 -Wall -Wextra -dynamic UkrainianSpeech.hs -o mm1
 
 (For Windows users):
 
-ghc.exe -O3 -Wall -dynamic UkrainianSpeech.hs -o mm1.exe
+ghc.exe -O2 -Wall -Wextra -dynamic UkrainianSpeech.hs -o mm1.exe
 
 (+ For Unices users): 
 strip --strip-unneeded mm1
