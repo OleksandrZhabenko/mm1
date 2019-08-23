@@ -14,6 +14,17 @@ Online access: http://www.cs.nott.ac.uk/~pszgmh/fold.pdf
 Last visited: 14/07/2019.
 7) https://cloford.com/resources/charcodes/ (Більше підтримки для UTF-8).
 
+При роботі над версією 0.3.0.0 були використані додаткові джерела:
+
+8) Душкин Р.В. Справочник по языку Haskell. - М.: ДМК Пресс, 2008. - 544 с., ил.
+9) https://cloford.com/resources/charcodes/ and materials there under the chapter of Unicode.
+10) https://unicode.org/charts/PDF/U0000.pdf
+11) https://unicode.org/charts/PDF/U0080.pdf
+12) https://stackoverflow.com/questions/9345589/guards-vs-if-then-else-vs-cases-in-haskell
+12) Harper T. (2010) Stream Fusion on Haskell Unicode Strings. In: Morazán M.T., Scholz SB. (eds) 
+Implementation and Application of Functional Languages. IFL 2009. Lecture Notes in Computer Science, 
+vol 6041. Springer, Berlin, Heidelberg
+
 English Translation
 
 I thank Marta and Maria Syniavska. You were truly inspiring for me to continue and finish my work on the program.
@@ -31,3 +42,14 @@ So, there were used such literal sources:
 Online access: http://www.cs.nott.ac.uk/~pszgmh/fold.pdf
 Last visited: 14/07/2019.
 7) https://cloford.com/resources/charcodes/ (UTF-8 more support).
+
+While working on the 0.3.0.0 version there were used the further sources:
+
+8) Душкин Р.В. Справочник по языку Haskell. - М.: ДМК Пресс, 2008. - 544 с., ил.
+9) https://cloford.com/resources/charcodes/ and materials there under the chapter of Unicode.
+10) https://unicode.org/charts/PDF/U0000.pdf
+11) https://unicode.org/charts/PDF/U0080.pdf
+12) https://stackoverflow.com/questions/9345589/guards-vs-if-then-else-vs-cases-in-haskell
+12) Harper T. (2010) Stream Fusion on Haskell Unicode Strings. In: Morazán M.T., Scholz SB. (eds) 
+Implementation and Application of Functional Languages. IFL 2009. Lecture Notes in Computer Science, 
+vol 6041. Springer, Berlin, Heidelberg
