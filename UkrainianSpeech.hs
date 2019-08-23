@@ -21,7 +21,6 @@ SOFTWARE.
 import System.CPUTime (getCPUTime)
 import System.Process (callCommand)
 import System.Directory (findExecutable)
-import System.Info (os)
 import System.Environment (getArgs)
 import qualified Data.List as L (groupBy)
 import qualified Data.Char as DC (toLower, isDigit, isAlpha, isPunctuation, isSpace)
@@ -30,7 +29,7 @@ import qualified Data.ByteString.Lazy.Char8 as C (ByteString,length,dropWhile,ta
   null,filter,groupBy,concat,any,span,foldr,readInteger)
 import qualified Data.ByteString.Internal as I (isSpaceChar8)
 import Prelude (Double,String,Char,Bool(True,False),Int,Integer,IO,FilePath,($!),($),(.),(==),(/=),(<),(<=),(>),(>=),(&&),(||),not,null,any,notElem,
-  fst,snd,show,error,putStr,putStrLn,(+),(-),div,mod,(++),foldr,map,zip,zipWith,take,drop,takeWhile,concat,concatMap,toInteger,
+  fst,snd,show,error,putStr,putStrLn,(+),(-),div,mod,(++),foldr,map,zip,zipWith,take,drop,takeWhile,concat,concatMap,toInteger,return,
     mapM_,filter,getContents,elem,last,head,tail,length,fromInteger,otherwise,and,or,sum,all,words,unwords,fromIntegral,iterate,dropWhile)
 
 -- | Main program
@@ -56,33 +55,47 @@ main = do
        let pauseW x = do
                         mapM_ (createSoundsForSyllable getCPUTime args) x
                         zz <- getCPUTime
-                        let t1 = 10000000000 + (zz `div` 10000000) in
-                          if os == "Windows"
-                            then callCommand $ "sox.exe --multi-threaded  -n -r 22.05k -c 1 -b 16 " ++ show t1 ++ ".ee.wav delay 0.015 trim 0 0.014"
-                            else callCommand $ "sox --multi-threaded  -n -r 22.05k -c 1 -b 16 " ++ show t1 ++ ".ee.wav delay 0.015 trim 0 0.014"
+                        let t1 = 10000000000 + (zz `div` 10000000) in 
+                          do
+                            eS <- endS
+                            callCommand $ "sox" ++ eS ++ " --multi-threaded  -n -r 22.05k -c 1 -b 16 " ++ show t1 ++ ".ee.wav delay 0.015 trim 0 0.014"
                               in mapM_ pauseW (map (if elem "W" args || elem "-W" args then combineSoundsLs30 else combineSoundsLs3) $ words2 nI2)
-       
+                              
+-- | Function that is used instead of System.Info.os to check whether the eSpeak and SoX executables end in .exe
+-- Функція, яка використовується замість System.Info.os, щоб перевірити, чи eSpeak і SoX програми закінчуються на .exe                            
+endOfExecutable :: String -> IO String                              
+endOfExecutable ys = do
+                       xs <- findExecutable ys
+                       if isJust xs 
+                         then do
+                                zs <- findExecutable (ys ++ ".exe")
+                                if zs == Nothing
+                                  then return ""
+                                  else error ("Please, use only one file as executable " ++ ys ++ "!\n")
+                         else do
+                                zs <- findExecutable (ys ++ ".exe")
+                                if isJust zs
+                                  then return ".exe"
+                                  else error ("Please, install the executable " ++ ys ++ " into the directory in the PATH variable! \n")
+                                  
+-- | Function that is used to find out the ending of eSpeak executable installed if any
+-- Функція, яка використовується для того, щоб знайти закінчення eSpeak програми, якщо така встановлена в системі                                  
+endE :: IO String
+endE = endOfExecutable "espeak"
+
+-- | Function that is used to find out the ending of SoX executable installed if any
+-- Функція, яка використовується для того, щоб знайти закінчення SoX програми, якщо така встановлена в системі
+endS :: IO String
+endS = endOfExecutable "sox"
+                              
 -- | Function that checks the eSpeak and SoX executables existence and is used for soft sign sound creation
 -- Функція, що перевіряє існування eSpeak і SoX додатків у системі та використовується для створення звуку для м'якого знаку
 createSoftSign :: IO ()
-createSoftSign | os == "Windows" =
-  do
-    x <- findExecutable "espeak.exe"
-    y <- findExecutable "sox.exe"
-    if isJust x && isJust y
-      then do
-             callCommand "espeak.exe -v esperanto -g 0 -w ь.wav -z \"j\"" 
-             callCommand "sox.exe --multi-threaded  ь.wav j.wav trim 0.02 0.037"
-      else error "Please, install eSpeak executable espeak.exe and SoX executable sox.exe into the directories mentioned in the variable PATH!\r\n"
-               | otherwise =
-  do
-    x <- findExecutable "espeak"
-    y <- findExecutable "sox"
-    if isJust x && isJust y
-      then do
-             callCommand "espeak -v esperanto -g 0 -w ь.wav -z \"j\"" 
-             callCommand "sox --multi-threaded  ь.wav j.wav trim 0.02 0.037" 
-      else error "Please, install eSpeak executable espeak and SoX executable sox into the directories mentioned in the variable PATH!\n"
+createSoftSign = do
+    eE <- endE
+    eS <- endS
+    callCommand $ "espeak" ++ eE ++ " -v esperanto -g 0 -w ь.wav -z \"j\"" 
+    callCommand $ "sox" ++ eS ++ " --multi-threaded  ь.wav j.wav trim 0.02 0.037"
 
 -- | Function that for the Ukrainian syllable represented as ((String, String),(String,Integer)) creates sounds
 -- Функція, що для українського складу представленого як ((String, String),(String,Integer)) створює звуки
@@ -96,17 +109,14 @@ createSoundsForSyllable time args ((xs, ys),(zs, k)) = case k of
     _ -> do
            t <- time
            let t1 = 10000000000 + (t `div` 10000000) in
-             if os == "Windows"
-               then if last xs == 'q'
+             if last xs == 'q'
                         then do
-                               callCommand $ "espeak.exe -v " ++ ys ++ " " ++ zs ++ " -w " ++ show t1 ++ "." ++ filter (/= 'q') xs ++ ".wav \"" ++ filter (/= 'q') xs ++ "\"" 
+                               eE <- endE
+                               callCommand $ "espeak" ++ eE ++ " -v " ++ ys ++ " " ++ zs ++ " -w " ++ show t1 ++ "." ++ filter (/= 'q') xs ++ ".wav \"" ++ filter (/= 'q') xs ++ "\"" 
                                addSoftSign $ show t1 ++ "." ++ filter (/= 'q') xs ++ ".wav"
-                        else callCommand $ "espeak.exe -v " ++ ys ++ " " ++ zs ++ " -w " ++ show t1 ++ "." ++ filter (/= 'q') xs ++ ".wav \"" ++ filter (/= 'q') xs ++ "\"" 
-               else if last xs == 'q'
-                        then do
-                               callCommand $ "espeak -v " ++ ys ++ " " ++ zs ++ " -w " ++ show t1 ++ "." ++ filter (/= 'q') xs ++ ".wav \"" ++ filter (/= 'q') xs ++ "\"" 
-                               addSoftSign $ show t1 ++ "." ++ filter (/= 'q') xs ++ ".wav"
-                        else callCommand $ "espeak -v " ++ ys ++ " " ++ zs ++ " -w " ++ show t1 ++ "." ++ filter (/= 'q') xs ++ ".wav \"" ++ filter (/= 'q') xs ++ "\"" 
+                        else do
+                               eE <- endE
+                               callCommand $ "espeak" ++ eE ++ " -v " ++ ys ++ " " ++ zs ++ " -w " ++ show t1 ++ "." ++ filter (/= 'q') xs ++ ".wav \"" ++ filter (/= 'q') xs ++ "\"" 
 
 -- | Function that prepares a String for processing by the eSpeak and SoX if args include "0" or "-0"
 -- Функція, яка готує слово з голосним для подальшої обробки  eSpeak та SoX, якщо args включають "0" або "-0"
@@ -151,14 +161,11 @@ punctuationPauseLength1 t1 xs = punctL11 (punctOpt xs) t1 xs
 -- | Function that checks the eSpeak and SoX executables existence and is used for soft sign sound appending to the syllable or word
 -- Функція, що перевіряє існування eSpeak і SoX додатків у системі та використовується для додавання м'якого знаку до кінцевого приголосного у слові чи складі
 addSoftSign :: FilePath -> IO ()
-addSoftSign file | os == "Windows" =
+addSoftSign file =
   do
-    callCommand $ "sox.exe --multi-threaded  " ++ file ++ " m." ++  file ++ " trim 0 -0.01"
-    callCommand $ "sox.exe --multi-threaded  m." ++ file ++ " j.wav " ++ file
-                 | otherwise = 
-  do
-    callCommand $ "sox --multi-threaded  " ++ file ++ " m." ++ file ++ " trim 0 -0.01"
-    callCommand $ "sox --multi-threaded  m." ++ file ++ " j.wav " ++ file
+    eS <- endS
+    callCommand $ "sox" ++ eS ++ " --multi-threaded  " ++ file ++ " m." ++  file ++ " trim 0 -0.01"
+    callCommand $ "sox" ++ eS ++ " --multi-threaded  m." ++ file ++ " j.wav " ++ file
 
 -- | Function that divides wrongly sounding syllables for abbeviations of esperanto months into parts
 -- Функція, яка ділить неправильно озвучувані склади для абревіатур назв місяців мовою есперанто на дві частини
@@ -1478,31 +1485,25 @@ punctL k t1 xs ys zs _ | DC.isPunctuation . head $ xs =
           300 -> punctL1 1.3 t1 xs
           1000 -> punctL1 0.9 t1 xs
           _    -> punctL1 0.7 t1 xs
-                       | otherwise = if os == "Windows"
-  then let (ts, us) = oneToTuple2 . filter (/= 'q') $ xs in if last xs == 'q'
+                       | otherwise = 
+  let (ts, us) = oneToTuple2 . filter (/= 'q') $ xs in if last xs == 'q'
     then do
-           callCommand ("espeak.exe -v " ++ ys ++ " " ++ zs ++ " -w m." ++ show t1 ++ "." ++ ts ++ ".wav \"" ++ ts ++ "\"") 
-           callCommand ("sox.exe --multi-threaded  " ++  "m." ++ show t1 ++ "." ++ ts ++ ".wav " ++  show t1 ++ "." ++ ts ++ ".wav " ++ us) 
+           eE <- endE
+           eS <- endS
+           callCommand ("espeak" ++ eE ++ " -v " ++ ys ++ " " ++ zs ++ " -w m." ++ show t1 ++ "." ++ ts ++ ".wav \"" ++ ts ++ "\"") 
+           callCommand ("sox" ++ eS ++ " --multi-threaded  " ++  "m." ++ show t1 ++ "." ++ ts ++ ".wav " ++  show t1 ++ "." ++ ts ++ ".wav " ++ us) 
            addSoftSign $ show t1 ++ "." ++ ts ++ ".wav"
     else if xs == "y"
              then do
-                    callCommand ("espeak.exe -v " ++ ys ++ " " ++ zs ++ " -w m." ++ show t1 ++ "." ++ xs ++ ".wav \"" ++ ts ++ "\"") 
-                    callCommand ("sox.exe --multi-threaded  " ++  "m." ++ show t1 ++ "." ++ xs ++ ".wav " ++ show t1 ++ "." ++ xs ++ ".wav " ++ us ++ " tempo -s 0.7") 
+                    eE <- endE
+                    eS <- endS
+                    callCommand ("espeak" ++ eE ++ " -v " ++ ys ++ " " ++ zs ++ " -w m." ++ show t1 ++ "." ++ xs ++ ".wav \"" ++ ts ++ "\"") 
+                    callCommand ("sox" ++ eS ++ " --multi-threaded  " ++  "m." ++ show t1 ++ "." ++ xs ++ ".wav " ++ show t1 ++ "." ++ xs ++ ".wav " ++ us ++ " tempo -s 0.7") 
              else do
-                    callCommand ("espeak.exe -v " ++ ys ++ " " ++ zs ++ " -w m." ++ show t1 ++ "." ++ xs ++ ".wav \"" ++ ts ++ "\"") 
-                    callCommand ("sox.exe --multi-threaded  " ++  "m." ++ show t1 ++ "." ++ xs ++ ".wav " ++ show t1 ++ "." ++ xs ++ ".wav " ++ us) 
-  else let (ts, us) = oneToTuple2 . filter (/= 'q') $ xs in if last xs == 'q'
-    then do
-           callCommand ("espeak -v " ++ ys ++ " " ++ zs ++ " -w m." ++ show t1 ++ "." ++ ts ++ ".wav \"" ++ ts ++ "\"") 
-           callCommand ("sox --multi-threaded  " ++  "m." ++ show t1 ++ "." ++ ts ++ ".wav " ++  show t1 ++ "." ++ ts ++ ".wav " ++ us) 
-           addSoftSign $ show t1 ++ "." ++ ts ++ ".wav"
-    else if xs == "y"
-             then do
-                    callCommand ("espeak -v " ++ ys ++ " " ++ zs ++ " -w m." ++ show t1 ++ "." ++ xs ++ ".wav \"" ++ ts ++ "\"") 
-                    callCommand ("sox --multi-threaded  " ++  "m." ++ show t1 ++ "." ++ xs ++ ".wav " ++ show t1 ++ "." ++ xs ++ ".wav " ++ us ++ " tempo -s 0.7") 
-             else do
-                    callCommand ("espeak -v " ++ ys ++ " " ++ zs ++ " -w m." ++ show t1 ++ "." ++ xs ++ ".wav \"" ++ ts ++ "\"") 
-                    callCommand ("sox --multi-threaded  " ++  "m." ++ show t1 ++ "." ++ xs ++ ".wav " ++ show t1 ++ "." ++ xs ++ ".wav " ++ us) 
+                    eE <- endE
+                    eS <- endS
+                    callCommand ("espeak" ++ eE ++ " -v " ++ ys ++ " " ++ zs ++ " -w m." ++ show t1 ++ "." ++ xs ++ ".wav \"" ++ ts ++ "\"") 
+                    callCommand ("sox" ++ eS ++ " --multi-threaded  " ++  "m." ++ show t1 ++ "." ++ xs ++ ".wav " ++ show t1 ++ "." ++ xs ++ ".wav " ++ us) 
 
 -- | Additional function that is used for optimization of the punctL and punctL11 functions
 -- Додаткова функція, яка використовується для оптимізації функцій punctL і punctL11
@@ -1580,18 +1581,12 @@ punctL11 k t1 xs ys zs args | DC.isPunctuation . head $ xs =
           300 -> punctL1 1.3 t1 xs
           1000 -> punctL1 0.9 t1 xs
           _    -> punctL1 0.7 t1 xs
-                            | os == "Windows" = 
-  let (ts, us) = oneToTuple2 . filter (/= 'q') $ xs in case head args of
-      "1" -> createZeroSyllable ('w', 0.7, t1, xs, ys, zs, ts, us)
-      "2" -> createZeroSyllable ('w', 0.8, t1, xs, ys, zs, ts, us)
-      "3" -> createZeroSyllable ('w', 0.9, t1, xs, ys, zs, ts, us)
-      _   -> createZeroSyllable ('w', 0.65, t1, xs, ys, zs, ts, us)
                             | otherwise =
   let (ts, us) = oneToTuple2 . filter (/= 'q') $ xs in case head args of
-      "1" -> createZeroSyllable ('u', 0.7, t1, xs, ys, zs, ts, us)
-      "2" -> createZeroSyllable ('u', 0.8, t1, xs, ys, zs, ts, us)
-      "3" -> createZeroSyllable ('u', 0.9, t1, xs, ys, zs, ts, us)
-      _   -> createZeroSyllable ('u', 0.65, t1, xs, ys, zs, ts, us)
+      "1" -> createZeroSyllable (0.7, t1, xs, ys, zs, ts, us)
+      "2" -> createZeroSyllable (0.8, t1, xs, ys, zs, ts, us)
+      "3" -> createZeroSyllable (0.9, t1, xs, ys, zs, ts, us)
+      _   -> createZeroSyllable (0.65, t1, xs, ys, zs, ts, us)
 
 -- | Function that creates Ukrainian syllables and groups them with some parameters to be then processed by the eSpeak and SoX executables
 -- Функція, що створює українські склади та групує їх з деякими параметрами, щоб потім вони були оброблені програмами eSpeak і SoX
@@ -1651,11 +1646,10 @@ isPunctOrSpaceB x = case x of
 -- | Additional function that is used for pause creation into the functions punctL and punctL11
 -- Додаткова функція, яка використовується всередині функцій punctL і punctL11 для створення пауз
 punctL1 :: Double -> Integer -> String -> IO ()
-punctL1 x t1 xs | os == "Windows" =
-  callCommand ("sox.exe --multi-threaded  -n -r 22.05k -c 1 -b 16 " ++ show t1 ++ "." ++ xs ++ ".wav delay " ++ show (x + 0.001) ++ " trim 0 " ++ show x) 
-                | otherwise = 
-  callCommand ("sox --multi-threaded  -n -r 22.05k -c 1 -b 16 " ++ show t1 ++ "." ++ xs ++ ".wav delay " ++ show (x + 0.001) ++ " trim 0 " ++ show x) 
-
+punctL1 x t1 xs = do
+  eS <- endS
+  callCommand ("sox" ++ eS ++ " --multi-threaded  -n -r 22.05k -c 1 -b 16 " ++ show t1 ++ "." ++ xs ++ ".wav delay " ++ show (x + 0.001) ++ " trim 0 " ++ show x) 
+  
 -- | Function that is used to convert single letters to a respective syllables for sounding
 -- Функція, що використовується, щоб перетворити окремі літери на відповідні склади для озвучування
 oneToTuple2 :: String -> (String, String)
@@ -1731,33 +1725,26 @@ oneToTuple2 xs = let x = head xs in if x == 'd'
 
 -- | Function that is used for zero-syllable creation varied from OS and duration
 -- Функція, яка використовується для створення слів без голосних і варіюється в залежності від ОС та тривалості
-createZeroSyllable :: (Char, Double, Integer, String, String, String, String, String) -> IO ()
-createZeroSyllable ('w', v, t1, xs, ys, zs, ts, us) | last xs == 'q' =
+createZeroSyllable :: (Double, Integer, String, String, String, String, String) -> IO ()
+createZeroSyllable (v, t1, xs, ys, zs, ts, us) | last xs == 'q' =
   do
-    callCommand ("espeak.exe -v " ++ ys ++ " " ++ zs ++ " -w m." ++ show t1 ++ "." ++ ts ++ ".wav \"" ++ ts ++ "\"") 
-    callCommand ("sox.exe --multi-threaded  " ++  "m." ++ show t1 ++ "." ++ ts ++ ".wav " ++  show t1 ++ "." ++ ts ++ ".wav " ++ us ++ " tempo -s " ++ show v) 
+    eE <- endE
+    eS <- endS
+    callCommand ("espeak" ++ eE ++ " -v " ++ ys ++ " " ++ zs ++ " -w m." ++ show t1 ++ "." ++ ts ++ ".wav \"" ++ ts ++ "\"") 
+    callCommand ("sox" ++ eS ++ " --multi-threaded  " ++  "m." ++ show t1 ++ "." ++ ts ++ ".wav " ++  show t1 ++ "." ++ ts ++ ".wav " ++ us ++ " tempo -s " ++ show v) 
     addSoftSign $ show t1 ++ "." ++ ts ++ ".wav"
-                                                    | xs == "y" =
+                                               | xs == "y" =
   do
-    callCommand ("espeak.exe -v " ++ ys ++ " " ++ zs ++ " -w m." ++ show t1 ++ "." ++ xs ++ ".wav \"" ++ ts ++ "\"") 
-    callCommand ("sox.exe --multi-threaded  " ++  "m." ++ show t1 ++ "." ++ xs ++ ".wav " ++ show t1 ++ "." ++ xs ++ ".wav " ++ us ++ " tempo -s " ++ show v) 
-                                                    | otherwise = 
+    eE <- endE
+    eS <- endS
+    callCommand ("espeak" ++ eE ++ " -v " ++ ys ++ " " ++ zs ++ " -w m." ++ show t1 ++ "." ++ xs ++ ".wav \"" ++ ts ++ "\"") 
+    callCommand ("sox" ++ eS ++ " --multi-threaded  " ++  "m." ++ show t1 ++ "." ++ xs ++ ".wav " ++ show t1 ++ "." ++ xs ++ ".wav " ++ us ++ " tempo -s " ++ show v) 
+                                               | otherwise = 
   do
-    callCommand ("espeak.exe -v " ++ ys ++ " " ++ zs ++ " -w m." ++ show t1 ++ "." ++ xs ++ ".wav \"" ++ ts ++ "\"") 
-    callCommand ("sox.exe --multi-threaded  " ++  "m." ++ show t1 ++ "." ++ xs ++ ".wav " ++ show t1 ++ "." ++ xs ++ ".wav " ++ us ++ " tempo -s " ++ show v) 
-createZeroSyllable (_, v, t1, xs, ys, zs, ts, us) | last xs == 'q' =
-  do
-    callCommand ("espeak -v " ++ ys ++ " " ++ zs ++ " -w m." ++ show t1 ++ "." ++ ts ++ ".wav \"" ++ ts ++ "\"") 
-    callCommand ("sox --multi-threaded  " ++  "m." ++ show t1 ++ "." ++ ts ++ ".wav " ++  show t1 ++ "." ++ ts ++ ".wav " ++ us ++ " tempo -s " ++ show v) 
-    addSoftSign $ show t1 ++ "." ++ ts ++ ".wav"
-                                                  | xs == "y" =
-  do
-    callCommand ("espeak -v " ++ ys ++ " " ++ zs ++ " -w m." ++ show t1 ++ "." ++ xs ++ ".wav \"" ++ ts ++ "\"") 
-    callCommand ("sox --multi-threaded  " ++  "m." ++ show t1 ++ "." ++ xs ++ ".wav " ++ show t1 ++ "." ++ xs ++ ".wav " ++ us ++ " tempo -s " ++ show v) 
-                                                  | otherwise = 
-  do
-    callCommand ("espeak -v " ++ ys ++ " " ++ zs ++ " -w m." ++ show t1 ++ "." ++ xs ++ ".wav \"" ++ ts ++ "\"") 
-    callCommand ("sox --multi-threaded  " ++  "m." ++ show t1 ++ "." ++ xs ++ ".wav " ++ show t1 ++ "." ++ xs ++ ".wav " ++ us ++ " tempo -s " ++ show v) 
+    eE <- endE
+    eS <- endS
+    callCommand ("espeak" ++ eE ++ " -v " ++ ys ++ " " ++ zs ++ " -w m." ++ show t1 ++ "." ++ xs ++ ".wav \"" ++ ts ++ "\"") 
+    callCommand ("sox" ++ eS ++ " --multi-threaded  " ++  "m." ++ show t1 ++ "." ++ xs ++ ".wav " ++ show t1 ++ "." ++ xs ++ ".wav " ++ us ++ " tempo -s " ++ show v) 
 
 -- | Function that takes a Ukrainian String and converts it to the data of the type ((String, String), (String, Integer)) that is used for zero-vowel words
 -- Функція, що отримує на вхід український String і конвертує його на дані типу ((String, String), (String, Integer)), що використовується для слів без голосних
