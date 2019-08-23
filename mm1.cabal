@@ -13,7 +13,8 @@ maintainer:          olexandr543@yahoo.com
 -- copyright:
 category:            Language
 build-type:          Simple
-extra-source-files:  ChangeLog.md
+extra-source-files:  ChangeLog.md INSTALL THANKS INSTALL.Ukrainian README.md Setup.hs UTF-8.conversion.encoding.table.pdf
+extra-doc-files:     dist/doc/html/mm1/mm1/*
 cabal-version:       >=1.10
 
 executable mm1
