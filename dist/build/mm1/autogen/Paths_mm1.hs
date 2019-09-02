@@ -26,14 +26,14 @@ catchIO :: IO a -> (Exception.IOException -> IO a) -> IO a
 catchIO = Exception.catch
 
 version :: Version
-version = Version [0,3,0,0] []
+version = Version [0,3,3,0] []
 bindir, libdir, dynlibdir, datadir, libexecdir, sysconfdir :: FilePath
 
 bindir     = "/home/pi/.cabal/bin"
-libdir     = "/home/pi/.cabal/lib/arm-linux-ghc-8.4.4/mm1-0.3.0.0-JkWHBKfdg8C4MurmieE1gI-mm1"
+libdir     = "/home/pi/.cabal/lib/arm-linux-ghc-8.4.4/mm1-0.3.3.0-6eFaTkx33UL686rMlAwwz-mm1"
 dynlibdir  = "/home/pi/.cabal/lib/arm-linux-ghc-8.4.4"
-datadir    = "/home/pi/.cabal/share/arm-linux-ghc-8.4.4/mm1-0.3.0.0"
-libexecdir = "/home/pi/.cabal/libexec/arm-linux-ghc-8.4.4/mm1-0.3.0.0"
+datadir    = "/home/pi/.cabal/share/arm-linux-ghc-8.4.4/mm1-0.3.3.0"
+libexecdir = "/home/pi/.cabal/libexec/arm-linux-ghc-8.4.4/mm1-0.3.3.0"
 sysconfdir = "/home/pi/.cabal/etc"
 
 getBinDir, getLibDir, getDynLibDir, getDataDir, getLibexecDir, getSysconfDir :: IO FilePath

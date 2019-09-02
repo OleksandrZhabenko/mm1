@@ -18,22 +18,41 @@ OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
 SOFTWARE.
 -}
 
+module Main (
+-- * Main Function
+  main, 
+-- * Functions used in the main function itself
+  createSoundsForSyllable, endS, combineSoundsLs3, words2, 
+-- * Functions used for preprocessing
+  concatPauseRecords, assimilationFirst, isSpecialNonSpace, separatePunct, softAssociate, ukrainianLast2, ukrainianJottedLast, ukrainianJotted1, changeAssimilative, 
+    separatePunct0, ukrainianToMoreSounding, changeH2X, change2BS, firstChange, readEnglishWithUkrainian, numberSounds, 
+-- * Functions used to create syllables or special symbol sequences
+  pFunctionP, pFunctionP0, hDivideMonths2, concatSoftSign, bGroups, hFunctionH, combineSoundsLs, createSyllablesReady, accountEmphasis, isVowelL, zeroSyllablePart, 
+    createSyllablesMultiLast2, divideToUnits, isSimPRecord, concatPunct, convertSyllableToLanguage, createSyllablesMulti, divideToListOfSoundGroupsAsLists, listOfFrames, 
+      divideConsonants, prepareToSyllables, listOfPoints, createSoundL, createSoundGroups, amountOfPartsForKthSyl, createSoundLChar, isSimilar, isConsonantL, 
+-- * Functions that are used for sound creation itself
+  punctuationPauseLength, punctuationPauseLength1, endE, addSoftSign, punctL, punctOpt, punctL11, punctL1, isDigitOrDot, stringToInteger, createZeroSyllable, createSoftSign, 
+-- * Other functions that are used internally in these ones
+  endOfExecutable, isSimilarPauseRecords, specialConcatBS, isVowelOrPunctuation, isVowelEG, dropWithFirst, isDigitOrDash, 
+    isPunctOrSpaceB, oneToTuple2, isPunctOrSpace, takeWithFirst, changeToEsperanto, verbSpecialConv, isSpecial, changeToDecoded, continueLang, mapLS
+) where
+
 import System.CPUTime (getCPUTime)
 import System.Process (callCommand)
 import System.Directory (findExecutable)
 import System.Environment (getArgs)
 import qualified Data.List as L (groupBy)
 import qualified Data.Char as DC (toLower, isDigit, isAlpha, isPunctuation, isSpace)
-import Data.Maybe (Maybe(Just,Nothing),isJust)
+import Data.Maybe (Maybe(Just,Nothing),isJust,isNothing)
 import qualified Data.ByteString.Lazy.Char8 as C (ByteString,length,dropWhile,takeWhile,drop,unpack,pack,cons,empty,singleton,head,tail,
-  null,filter,groupBy,concat,any,span,foldr,readInteger)
-import qualified Data.ByteString.Internal as I (isSpaceChar8)
-import Prelude (Double,String,Char,Bool(True,False),Int,Integer,IO,FilePath,($!),($),(.),(==),(/=),(<),(<=),(>),(>=),(&&),(||),not,null,any,notElem,
-  fst,snd,show,error,putStr,putStrLn,(+),(-),div,mod,(++),foldr,map,zip,zipWith,take,drop,takeWhile,concat,concatMap,toInteger,return,
-    mapM_,filter,getContents,elem,last,head,tail,length,fromInteger,otherwise,and,or,sum,all,words,unwords,fromIntegral,iterate,dropWhile)
+  null,filter,groupBy,concat,any,span,foldr,readInteger,all)
+--import qualified Data.ByteString.Internal as I (isSpaceChar8)
+import Prelude (Double,String,Char,Bool(True,False),Int,Integer,IO,FilePath,($!),($),(.),(==),(/=),(/),(*),(^),foldl1,(<),(<=),(>),(>=),(&&),(||),not,null,any,notElem,
+  fst,snd,show,error,putStr,putStrLn,(+),(-),div,mod,(++),foldr,map,zip,zipWith,take,drop,takeWhile,concat,concatMap,toInteger,return,last,init,
+    mapM_,filter,getContents,elem,last,head,tail,length,fromInteger,fromIntegral,otherwise,and,or,sum,all,words,unwords,fromIntegral,iterate,dropWhile)
 
--- | Main program
--- Головна програма
+-- | Main function
+-- Головна функція
 main :: IO ()
 main = do
    args <- getArgs
@@ -49,6 +68,10 @@ main = do
        putStrLn "втім різниця не така велика). "
        putStrLn " "
        putStrLn "Якщо Ви бажаєте, щоб усі склади розбивалися для озвучування на звуки, то введіть як аргумент командного рядка \"-W\" або \"W\". "
+       putStrLn ""
+       putStr "Якщо бажаєте задати свою тривалість паузи, можете задати додаткову тривалість паузи, вставивши в текст на місці паузи набір символів "
+       putStr "\"!1.253\", де цифри через крапку є звичайним записом числа типу Double, яке є бажаною додатковою тривалістю паузи, більшою за 0.1 секунди. "
+       putStrLn "Інакше буде додано паузу 0.1 секунди. "
      else do
        createSoftSign
        nI2 <- getContents
@@ -59,7 +82,7 @@ main = do
                           do
                             eS <- endS
                             callCommand $ "sox" ++ eS ++ " --multi-threaded  -n -r 22.05k -c 1 -b 16 " ++ show t1 ++ ".ee.wav delay 0.015 trim 0 0.014"
-                              in mapM_ pauseW (map (if elem "W" args || elem "-W" args then combineSoundsLs30 else combineSoundsLs3) $ words2 nI2)
+                              in mapM_ (pauseW . combineSoundsLs3 (if elem "W" args || elem "-W" args then 0 else 1)) (words2 nI2)
                               
 -- | Function that is used instead of System.Info.os to check whether the eSpeak and SoX executables end in .exe
 -- Функція, яка використовується замість System.Info.os, щоб перевірити, чи eSpeak і SoX програми закінчуються на .exe                            
@@ -69,7 +92,7 @@ endOfExecutable ys = do
                        if isJust xs 
                          then do
                                 zs <- findExecutable (ys ++ ".exe")
-                                if zs == Nothing
+                                if isNothing zs
                                   then return ""
                                   else error ("Please, use only one file as executable " ++ ys ++ "!\n")
                          else do
@@ -118,21 +141,19 @@ createSoundsForSyllable time args ((xs, ys),(zs, k)) = case k of
                                eE <- endE
                                callCommand $ "espeak" ++ eE ++ " -v " ++ ys ++ " " ++ zs ++ " -w " ++ show t1 ++ "." ++ filter (/= 'q') xs ++ ".wav \"" ++ filter (/= 'q') xs ++ "\"" 
 
--- | Function that prepares a String for processing by the eSpeak and SoX if args include "0" or "-0"
--- Функція, яка готує слово з голосним для подальшої обробки  eSpeak та SoX, якщо args включають "0" або "-0"
-combineSoundsLs30 :: C.ByteString -> [((String, String), (String, Integer))]
-combineSoundsLs30 xs = concatMap hDivideMonths2 . concatSoftSign . concatMap hFunctionH $ combineSoundsLs xs
-
 -- | Function that prepares a String for processing by the eSpeak and SoX for non-zero-syllable words
 -- Функція, яка готує слово з голосним для подальшої обробки  eSpeak та SoX
-combineSoundsLs3 :: C.ByteString -> [((String, String), (String, Integer))]
-combineSoundsLs3 xs = concatMap hDivideMonths2 . concatSoftSign . bGroups pFunctionP hFunctionH $ combineSoundsLs xs
+combineSoundsLs3 :: Int -> C.ByteString -> [((String, String), (String, Integer))]
+combineSoundsLs3 k | k == 0 = combineSoundsLs30 pFunctionP0  
+                   | otherwise = combineSoundsLs30 pFunctionP
+  where combineSoundsLs30 p = concatMap hDivideMonths2 . concatSoftSign . bGroups p hFunctionH . combineSoundsLs
+  
 
 -- | Function that produces the list of Ukrainian strings from the primary Ukrainian string which can be further easily processed
 -- Функція, яка створює список українських рядків з початкового українського рядка, які можуть бути легко оброблені далі
 words2 :: String -> [C.ByteString]
 words2 [] = []
-words2 xs = filter (not . C.null) . assimilationFirst . map (C.filter isSpecialNonSpace) . separatePunct . softAssociate . ukrainianLast2 . ukrainianJottedLast . ukrainianJotted1 .
+words2 xs = concatPauseRecords . filter (not . C.null) . assimilationFirst . map (C.filter isSpecialNonSpace) . separatePunct . softAssociate . ukrainianLast2 . ukrainianJottedLast . ukrainianJotted1 .
   changeAssimilative . separatePunct0 . ukrainianToMoreSounding . changeH2X . C.pack . change2BS . filter (\x -> or [x >= '\x0000' && x <= '\x0006', x >= '\x0008' && x <= '\x000B',
     x >='\x000D' && x <= '\x000F', x >= '\x0017' && x <= '\x001F', x >= '\x0020' && x <= '\x0022', x >= '\x0026' && x <= '\x003B', x >= '\x003F' && x <= '\x0040',
       x == '\x005C', x >= '\x005F' && x <= '\x0060',  x >= '\x007B' && x <= '\x007F', x == '\x00A0', x == '\x00AB', x == '\x00BB', x >= '\x0430' && x <= '\x0449',
@@ -140,6 +161,32 @@ words2 xs = filter (not . C.null) . assimilationFirst . map (C.filter isSpecialN
           x >= '\x2028' && x <= '\x2029', x >= '\x2047' && x <= '\x2049', x >= '\x20A0' && x <= '\x20A4', x == '\x20AC', x == '\x20B4', x == '\x2103',
             x == '\x2109', x == '\x2122']) . map firstChange . concatMap readEnglishWithUkrainian . unwords . map (\x -> if all DC.isDigit x then concatMap numberSounds x else x) $
               words xs
+              
+-- | Function-predicate to check whether its argument is from the special volatile punctuation group that sets the duration of the additional pause
+-- Функція-предикат, яка перевіряє, чи її аргумент є зі спеціальної довільної групи, яка встановлює тривалість додаткової паузи
+isSimPRecord :: Char -> Bool
+isSimPRecord x = (x == '\x0021') || isDigitOrDot x
+
+-- | Function-predicate to check whether its arguments are both from the special volatile punctuation group that sets the duration of the additional pause (is used to group them by)
+-- Функція-предикат, яка перевіряє, чи її аргументи обидва є зі спеціальної довільної групи, яка встановлює тривалість додаткової паузи (використовується, щоб їх згрупувати)
+isSimilarPauseRecords :: C.ByteString -> C.ByteString -> Bool
+isSimilarPauseRecords x y = C.all isSimPRecord x && C.all isSimPRecord y
+
+-- | Function that concatenates a list of ByteString into the single ByteString and is used to set the duration of the additional pause
+-- Функція, яка ппоєднує список ByteString у один ByteString і яка використовується для встановлення тривалості додаткової паузи
+specialConcatBS :: [C.ByteString] -> C.ByteString
+specialConcatBS xs | not . null $ xs =
+  if null . tail $ xs 
+    then head xs 
+    else C.concat xs
+                   | otherwise = C.empty
+
+-- | Function that is used for creation of the volatile pauses
+-- Функція, яка використовується для створення довільних пауз
+concatPauseRecords :: [C.ByteString] -> [C.ByteString]
+concatPauseRecords xs | not . null $ xs =
+  map specialConcatBS . L.groupBy isSimilarPauseRecords $ xs
+                      | otherwise = []
 
 -- | Function-predicate used for filtering and indicating that a Char '\x000C' has not space semantics after encoding to ByteString
 -- Функція-предикат, яка використовується для фільтрування та вказівки на те, що символ '\x000C' має не семантику пробільного символу після кодування в ByteString
@@ -219,7 +266,7 @@ hFunctionH ((u:t:ts, ys), (zs, _)) | u == 'd' = case t of
   'z' -> (("dz", ys), (zs, 0)):hFunctionH ((ts, ys), (zs, 0))
   'ĵ' -> (("dĵ", ys), (zs, 0)):hFunctionH ((ts, ys), (zs, 0))
   _   -> (("d", ys), (zs, 0)):hFunctionH  ((t:ts, ys), (zs, 0))
-                                     | otherwise = (([u], ys), (zs, 0)):hFunctionH ((t:ts, ys), (zs, 0))
+                                   | otherwise = (([u], ys), (zs, 0)):hFunctionH ((t:ts, ys), (zs, 0))
 hFunctionH (([x], ys), (zs, _)) = [(([x], ys), (zs, 0))]
 hFunctionH  (([], _), (_, _)) = []                                     
 
@@ -237,7 +284,12 @@ bGroups p h = concatMap (\x -> if p x then h x else [x])
 -- | Function-predicate that checks whether the hFunctionH must be applied to the ((String, String), (String, Integer))
 -- Функція-предикат, яка перевіряє, чи має бути застосована hFunctionH до ((String, String), (String, Integer))
 pFunctionP :: ((String, String), (String, Integer)) -> Bool
-pFunctionP ((xs, _), (_, _)) = (not . any isVowelOrPunctuation $ xs) || ((length . takeWhile (not . isVowelEG) $ xs) > 3) || ((length . dropWithFirst isVowelEG $ xs) > 3)
+pFunctionP ((xs, _), (_, _)) = ((not . any isVowelOrPunctuation $ xs) || ((length . takeWhile (not . isVowelEG) $ xs) > 3) || ((length . dropWithFirst isVowelEG $ xs ) > 3)) && (not . any DC.isPunctuation $ xs)
+
+-- | Function-predicate that checks whether the hFunctionH must be applied to the ((String, String), (String, Integer)) for args containing -W or W
+-- Функція-предикат, яка перевіряє, чи має бути застосована hFunctionH до ((String, String), (String, Integer)) для args, які містять -W або W
+pFunctionP0 :: ((String, String), (String, Integer)) -> Bool
+pFunctionP0 ((xs, _), (_, _)) = not . any DC.isPunctuation $ xs
 
 -- | Additional function to take into account assimilation rules that depend on the position in the word of the group of Ukrainian sounds
 -- Додаткова функція, щоб врахувати правила асиміляції, які залежать від положення у слові групи українських звуків
@@ -258,6 +310,7 @@ assimilationFirst xs = map (\x -> let z = C.dropWhile isDigitOrDash x in if C.nu
 -- Функція, що відділяє пунктуацію від слів для подальшої обробки
 separatePunct :: C.ByteString -> [C.ByteString]
 separatePunct xs | C.null xs = [C.empty]
+                 | (not . C.null . C.tail $ xs) && C.head xs == '!' = let z2 = C.span (\x -> isPunctOrSpaceB x || DC.isDigit x) xs in C.singleton ' ':fst z2:separatePunct (snd z2)
                  | isPunctOrSpaceB . C.head $ xs = let z = C.span isPunctOrSpaceB xs in C.singleton ' ':fst z:separatePunct (snd z)
                  | otherwise = let zN = C.span (not . isPunctOrSpaceB) xs in fst zN:separatePunct (snd zN)
 
@@ -515,7 +568,7 @@ changeAssimilative xs | C.null xs = C.empty
 separatePunct0 :: C.ByteString -> C.ByteString
 separatePunct0 = C.foldr f v
   where v = C.empty
-        f x ys | DC.isPunctuation x || (x >= '\x00E1' && x <= '\x00F9') = ' ' `C.cons` x `C.cons` ' ' `C.cons` ys
+        f x ys | DC.isPunctuation x || (x >= '\x00E1' && x <= '\x00F9') || (x >= '\x0030' && x <= '\x0039') = ' ' `C.cons` x `C.cons` ' ' `C.cons` ys
                | otherwise = x `C.cons` ys
 
 -- | Function that primarily converts Ukrainian line into more sounds-based line and more oriented to more using prosodical information
@@ -1320,12 +1373,12 @@ readEnglishWithUkrainian x | x >= '\x0061' && x <= '\x007A' =
         else case x of
           '\x0075' -> "ю"
           '\x0076' -> "ві"
-          _        -> "даблйу"
+          _        -> "даблййу"
       else if x <= '\x0071'
         then if x >= '\x0070'
           then case x of
             '\x0070' -> "пі"
-            _        -> "кйу"
+            _        -> "кййу"
           else case x of
             '\x006E' -> "ен"
             _        -> "оу"
@@ -1366,12 +1419,12 @@ readEnglishWithUkrainian x | x >= '\x0061' && x <= '\x007A' =
         else case x of
           '\x0055' -> "ю"
           '\x0056' -> "ві"
-          _        -> "даблйу"
+          _        -> "даблййу"
       else if x <= '\x0051'
         then if x >= '\x0050'
           then case x of
             '\x0050' -> "пі"
-            _        -> "кйу"
+            _        -> "кййу"
           else case x of
             '\x004E' -> "ен"
             _        -> "оу"
@@ -1419,9 +1472,9 @@ numberSounds x | x >= '\x0035' =
   if x >= '\x0038'
     then case x of
       '\x0038' -> " вісім "
-      _        -> " девйать "
+      _        -> " девййать "
     else case x of
-      '\x0035' -> " пйать "
+      '\x0035' -> " пййать "
       '\x0036' -> " шість "
       _        -> " сім "
                | otherwise =
@@ -1437,7 +1490,9 @@ numberSounds x | x >= '\x0035' =
 -- | Function that considers a number of punctuation marks for proper pause creation
 -- Функція, яка бере до уваги кількість пунктуаційних знаків для правильного створення пауз
 punctL :: Integer -> Integer -> String -> String -> String -> [String] -> IO ()
-punctL k t1 xs ys zs _ | DC.isPunctuation . head $ xs =
+punctL k t1 xs ys zs _ | k >= 10000000000 =
+  punctL1 (let r = fromIntegral k / 100000000000 in if r >= 0.1 then r - 0.014 else 0.086) t1 xs
+                       | DC.isPunctuation . head $ xs =
   if k >= 1000200
     then if k >= 10000000
       then if k >= 12000000
@@ -1493,47 +1548,81 @@ punctL k t1 xs ys zs _ | DC.isPunctuation . head $ xs =
            callCommand ("espeak" ++ eE ++ " -v " ++ ys ++ " " ++ zs ++ " -w m." ++ show t1 ++ "." ++ ts ++ ".wav \"" ++ ts ++ "\"") 
            callCommand ("sox" ++ eS ++ " --multi-threaded  " ++  "m." ++ show t1 ++ "." ++ ts ++ ".wav " ++  show t1 ++ "." ++ ts ++ ".wav " ++ us) 
            addSoftSign $ show t1 ++ "." ++ ts ++ ".wav"
-    else if xs == "y"
-             then do
-                    eE <- endE
-                    eS <- endS
-                    callCommand ("espeak" ++ eE ++ " -v " ++ ys ++ " " ++ zs ++ " -w m." ++ show t1 ++ "." ++ xs ++ ".wav \"" ++ ts ++ "\"") 
-                    callCommand ("sox" ++ eS ++ " --multi-threaded  " ++  "m." ++ show t1 ++ "." ++ xs ++ ".wav " ++ show t1 ++ "." ++ xs ++ ".wav " ++ us ++ " tempo -s 0.7") 
-             else do
-                    eE <- endE
-                    eS <- endS
-                    callCommand ("espeak" ++ eE ++ " -v " ++ ys ++ " " ++ zs ++ " -w m." ++ show t1 ++ "." ++ xs ++ ".wav \"" ++ ts ++ "\"") 
-                    callCommand ("sox" ++ eS ++ " --multi-threaded  " ++  "m." ++ show t1 ++ "." ++ xs ++ ".wav " ++ show t1 ++ "." ++ xs ++ ".wav " ++ us) 
+    else do
+           eE <- endE
+           eS <- endS
+           callCommand ("espeak" ++ eE ++ " -v " ++ ys ++ " " ++ zs ++ " -w m." ++ show t1 ++ "." ++ xs ++ ".wav \"" ++ ts ++ "\"") 
+           callCommand $ "sox" ++ eS ++ " --multi-threaded  " ++  "m." ++ show t1 ++ "." ++ xs ++ ".wav " ++ show t1 ++ "." ++ xs ++ ".wav " ++ us ++ (if xs == "y" then " tempo -s 0.7" else "") 
+
+-- | Function-predicate to check whether its argument is a digit or dot
+-- Функція-предикат, яка перевіряє, чи є її аргумент цифра чи крапка
+isDigitOrDot :: Char -> Bool
+isDigitOrDot x = DC.isDigit x || (x == '\x002E') 
+
+-- | Function that converts a String with digits into an Integer
+-- Функція, що конвертує String з цифрами в Integer
+stringToInteger :: String -> Integer
+stringToInteger xs | null xs = 0
+                   | otherwise = 
+  foldl1 ((+) . (*10)) $! map charToDigit xs
+    where charToDigit x = case x of
+            '1' -> 1
+            '2' -> 2
+            '3' -> 3
+            '4' -> 4
+            '5' -> 5
+            '6' -> 6
+            '7' -> 7
+            '8' -> 8
+            '9' -> 9
+            '0' -> 0
+            _ -> error "Character Is Not a Digit!\n"
 
 -- | Additional function that is used for optimization of the punctL and punctL11 functions
 -- Додаткова функція, яка використовується для оптимізації функцій punctL і punctL11
 punctOpt :: String -> Integer
-punctOpt = sum . map (\x -> if x >= '\x003A'
-  then if x >= '\x004F'
-    then case x of
-      '\x004C' -> 10
-      '\x004D' -> 1
-      _        -> 0
-    else case x of
-      '\x003A' -> 100000
-      '\x003B' -> 10000
-      '\x003F' -> 100
-      _        -> 0
-  else if x >= '\x002C'
-    then case x of
-      '\x002C' -> 10000000
-      '\x002E' -> 1000000
-      _        -> 0
-    else case x of
-      '\x0021' -> 1000
-      '\x0028' -> 1000000000
-      '\x0029' -> 100000000
-      _        -> 0)
+punctOpt xs | (not . null . tail $ xs) && head xs == '!' && (DC.isDigit . head . tail $ xs) =
+  let z = dropWhile (== '\x0030') . (\x -> if last x == '\x002E' then init x else x) . filter isDigitOrDot $ xs in 
+    if head z == '\x002E'
+      then let zk1 = take 3 . tail $ z in 
+             let zk2 = length zk1 in case zk2 of
+                 0 -> stringToInteger z * 10000000000
+                 _ -> stringToInteger zk1 * 10^(11-zk2)
+      else let zk1 = take 3 . dropWithFirst (/= '\x002E') $ z in 
+             let z0 = takeWhile (/= '\x002E') z in
+               let zk2 = length zk1 in 
+                 let zk3 = z0 ++ zk1 in case zk2 of
+                   0 -> stringToInteger z * 10000000000
+                   _ -> stringToInteger zk3 * 10^(11-zk2)             
+            | otherwise = 
+  sum . map (\x -> if x >= '\x003A'
+    then if x >= '\x004F'
+      then case x of
+        '\x004C' -> 10
+        '\x004D' -> 1
+        _        -> 0
+      else case x of
+        '\x003A' -> 100000
+        '\x003B' -> 10000
+        '\x003F' -> 100
+        _        -> 0
+    else if x >= '\x002C'
+      then case x of
+        '\x002C' -> 10000000
+        '\x002E' -> 1000000
+        _        -> 0
+      else case x of
+        '\x0021' -> 1000
+        '\x0028' -> 1000000000
+        '\x0029' -> 100000000
+        _        -> 0) $ xs
 
 -- | Function that considers a number of punctuation marks for proper pause creation
 -- Функція, яка бере до уваги кількість пунктуаційних знаків для правильного створення пауз
 punctL11 :: Integer -> Integer -> String -> String -> String -> [String] -> IO ()
-punctL11 k t1 xs ys zs args | DC.isPunctuation . head $ xs =
+punctL11 k t1 xs ys zs args | k >= 10000000000 =
+  punctL1 (let r = fromIntegral k / 100000000000 in if r >= 0.1 then r - 0.014 else 0.086) t1 xs
+                            | DC.isPunctuation . head $ xs =
   if k >= 1000200
     then if k >= 10000000
       then if k >= 12000000
@@ -1641,7 +1730,7 @@ isDigitOrDash x = DC.isDigit x || x == '\x002D'
 isPunctOrSpaceB :: Char -> Bool
 isPunctOrSpaceB x = case x of
   '\x000C' -> False
-  _ -> I.isSpaceChar8 x || DC.isPunctuation x || (x >= '\x00E1' && x <= '\x00F9')
+  _ -> DC.isSpace x || DC.isPunctuation x || (x >= '\x00E1' && x <= '\x00F9')
 
 -- | Additional function that is used for pause creation into the functions punctL and punctL11
 -- Додаткова функція, яка використовується всередині функцій punctL і punctL11 для створення пауз
@@ -1733,12 +1822,6 @@ createZeroSyllable (v, t1, xs, ys, zs, ts, us) | last xs == 'q' =
     callCommand ("espeak" ++ eE ++ " -v " ++ ys ++ " " ++ zs ++ " -w m." ++ show t1 ++ "." ++ ts ++ ".wav \"" ++ ts ++ "\"") 
     callCommand ("sox" ++ eS ++ " --multi-threaded  " ++  "m." ++ show t1 ++ "." ++ ts ++ ".wav " ++  show t1 ++ "." ++ ts ++ ".wav " ++ us ++ " tempo -s " ++ show v) 
     addSoftSign $ show t1 ++ "." ++ ts ++ ".wav"
-                                               | xs == "y" =
-  do
-    eE <- endE
-    eS <- endS
-    callCommand ("espeak" ++ eE ++ " -v " ++ ys ++ " " ++ zs ++ " -w m." ++ show t1 ++ "." ++ xs ++ ".wav \"" ++ ts ++ "\"") 
-    callCommand ("sox" ++ eS ++ " --multi-threaded  " ++  "m." ++ show t1 ++ "." ++ xs ++ ".wav " ++ show t1 ++ "." ++ xs ++ ".wav " ++ us ++ " tempo -s " ++ show v) 
                                                | otherwise = 
   do
     eE <- endE
@@ -1749,11 +1832,14 @@ createZeroSyllable (v, t1, xs, ys, zs, ts, us) | last xs == 'q' =
 -- | Function that takes a Ukrainian String and converts it to the data of the type ((String, String), (String, Integer)) that is used for zero-vowel words
 -- Функція, що отримує на вхід український String і конвертує його на дані типу ((String, String), (String, Integer)), що використовується для слів без голосних
 zeroSyllablePart :: C.ByteString ->  [((String, String), (String, Integer))]
-zeroSyllablePart =  filter (not . null . fst . fst) . concatPunct . map (\x -> if x == "γ"
-  then (("γ", "greek"), ("-z", 0))
-  else if x == "y"
-    then (("y", "polish"), ("-z", 0))
-    else ((x, "esperanto"), ("-z", 0))) . convertSyllableToLanguage 
+zeroSyllablePart xs | C.all isSimPRecord xs =
+  [((C.unpack xs, "esperanto"), ("-z",0))]
+                    | otherwise =
+  filter (not . null . fst . fst) . concatPunct . map (\x -> if x == "γ"
+    then (("γ", "greek"), ("-z", 0))
+    else if x == "y"
+      then (("y", "polish"), ("-z", 0))
+      else ((x, "esperanto"), ("-z", 0))) . convertSyllableToLanguage $ xs
 
 -- | Function that creates data of the type [((String, String),(String,Integer))] for non-zero-syllable words
 -- Функція, що створює дані типу [((String, String),(String,Integer))] для слів з голосними
@@ -1776,17 +1862,17 @@ createSyllablesMultiLast2 xss (Just y, z) | null xss = []
              _   -> ((x, "esperanto"), ("-z", z)))) . take (fromInteger (y - 1)) $ xss, concatMap (map (\x -> case x of
                "γ" -> (("γ", "greek"), ("-a 110 -z", z))
                "y" -> (("y", "polish"), ("-a 110 -z", 0))
-               _   -> ((x, "esperanto"), ("-a 110 -z", z)))) $ [head $ drop (fromInteger (y - 1)) xss], concatMap (map (\x -> case x of
+               _   -> ((x, "esperanto"), ("-a 110 -z", z)))) [head $ drop (fromInteger (y - 1)) xss], concatMap (map (\x -> case x of
                  "γ" -> (("γ", "greek"), ("-z", z))
                  "y" -> (("y", "polish"), ("-z", 0))
                  _   -> ((x, "esperanto"), ("-z", z)))) $ drop (fromInteger y) xss]
            else (concatMap (map (\x -> case x of
              "γ" -> (("γ", "greek"), ("-z", z))
              "y" -> (("y", "polish"), ("-z", 0))
-             _   -> ((x, "esperanto"), ("-z", z)))) . take (fromInteger (z - 1)) $ xss) ++ (concatMap (map (\x -> case x of
+             _   -> ((x, "esperanto"), ("-z", z)))) . take (fromInteger (z - 1)) $ xss) ++ concatMap (map (\x -> case x of
                "γ" -> (("γ", "greek"), ("-a 110 -z", z))
                "y" -> (("y", "polish"), ("-a 110 -z", 0))
-               _   -> ((x, "esperanto"), ("-a 110 -z", z)))) $ [last xss])
+               _   -> ((x, "esperanto"), ("-a 110 -z", z)))) [last xss]
 createSyllablesMultiLast2 xss (Nothing, z) | null xss = []
                                            | otherwise = createSyllablesMultiLast2 xss (Just (z - 1), z)
 
@@ -2331,7 +2417,3 @@ mapLS :: C.ByteString -> [Int] -> [Int]
 mapLS xs ks = let zss = divideToListOfSoundGroupsAsLists xs in map (\x -> sum1 (map ((== 'w') . snd) $ concat $ take x zss) $! 0) ks 
   where sum1 ys accum | not . null $ ys = if head ys then sum1 (tail ys) $! (accum + 1) else sum1 (tail ys) accum 
                       | otherwise = accum
-        
-                      
-
-

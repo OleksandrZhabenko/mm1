@@ -116,3 +116,10 @@ Latin-1 words asseming the English language for them.
 * Eleventh version. Changed the mechanism how it it checked whether the .exe suffix is needed for espeak ond sox executables. Earlier there could be some difficulties for users with this issue. Now, it should work for all enough good
 conditions.
 
+## 0.3.3.0  -- 2019-09-02
+
+* Twelfth version. You can now add volatile pauses by using a " !Double " pattern
+where Double means a normally written Double numeral with (or without) a dot. 
+Extended documentation and used a module declaration.
+
+
