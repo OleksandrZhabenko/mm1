@@ -25,11 +25,11 @@ module Main (
   createSoundsForSyllable, endS, combineSoundsLs3, words2, 
 -- * Functions used for preprocessing
   concatPauseRecords, assimilationFirst, isSpecialNonSpace, separatePunct, softAssociate, ukrainianLast2, ukrainianJottedLast, ukrainianJotted1, changeAssimilative, 
-    separatePunct0, ukrainianToMoreSounding, changeH2X, change2BS, firstChange, readEnglishWithUkrainian, numberSounds, 
+    separatePunct0, ukrainianToMoreSounding, changeH2X, change2BS, firstChange, readEnglishWithUkrainian, numberSounds, isFiltered, 
 -- * Functions used to create syllables or special symbol sequences
   pFunctionP, pFunctionP0, hDivideMonths2, concatSoftSign, bGroups, hFunctionH, combineSoundsLs, createSyllablesReady, accountEmphasis, isVowelL, zeroSyllablePart, 
     createSyllablesMultiLast2, divideToUnits, isSimPRecord, concatPunct, convertSyllableToLanguage, createSyllablesMulti, divideToListOfSoundGroupsAsLists, listOfFrames, 
-      divideConsonants, prepareToSyllables, listOfPoints, createSoundL, createSoundGroups, amountOfPartsForKthSyl, createSoundLChar, isSimilar, isConsonantL, 
+      divideConsonants, prepareToSyllables, listOfPoints, createSoundL, createSoundGroups, amountOfPartsForKthSyl, createSoundLChar, isSimilar, isConsonantL, isFilteredForLast2, 
 -- * Functions that are used for sound creation itself
   punctuationPauseLength, punctuationPauseLength1, endE, addSoftSign, punctL, punctOpt, punctL11, punctL1, isDigitOrDot, stringToInteger, createZeroSyllable, createSoftSign, 
 -- * Other functions that are used internally in these ones
@@ -46,10 +46,9 @@ import qualified Data.Char as DC (toLower, isDigit, isAlpha, isPunctuation, isSp
 import Data.Maybe (Maybe(Just,Nothing),isJust,isNothing)
 import qualified Data.ByteString.Lazy.Char8 as C (ByteString,length,dropWhile,takeWhile,drop,unpack,pack,cons,empty,singleton,head,tail,
   null,filter,groupBy,concat,any,span,foldr,readInteger,all)
---import qualified Data.ByteString.Internal as I (isSpaceChar8)
 import Prelude (Double,String,Char,Bool(True,False),Int,Integer,IO,FilePath,($!),($),(.),(==),(/=),(/),(*),(^),foldl1,(<),(<=),(>),(>=),(&&),(||),not,null,any,notElem,
   fst,snd,show,error,putStr,putStrLn,(+),(-),div,mod,(++),foldr,map,zip,zipWith,take,drop,takeWhile,concat,concatMap,toInteger,return,last,init,
-    mapM_,filter,getContents,elem,last,head,tail,length,fromInteger,fromIntegral,otherwise,and,or,sum,all,words,unwords,fromIntegral,iterate,dropWhile)
+    mapM_,filter,getContents,elem,last,head,tail,length,fromInteger,fromIntegral,otherwise,and,sum,all,words,unwords,fromIntegral,iterate,dropWhile)
 
 -- | Main function
 -- Головна функція
@@ -148,19 +147,37 @@ combineSoundsLs3 k | k == 0 = combineSoundsLs30 pFunctionP0
                    | otherwise = combineSoundsLs30 pFunctionP
   where combineSoundsLs30 p = concatMap hDivideMonths2 . concatSoftSign . bGroups p hFunctionH . combineSoundsLs
   
-
 -- | Function that produces the list of Ukrainian strings from the primary Ukrainian string which can be further easily processed
 -- Функція, яка створює список українських рядків з початкового українського рядка, які можуть бути легко оброблені далі
 words2 :: String -> [C.ByteString]
 words2 [] = []
 words2 xs = concatPauseRecords . filter (not . C.null) . assimilationFirst . map (C.filter isSpecialNonSpace) . separatePunct . softAssociate . ukrainianLast2 . ukrainianJottedLast . ukrainianJotted1 .
-  changeAssimilative . separatePunct0 . ukrainianToMoreSounding . changeH2X . C.pack . change2BS . filter (\x -> or [x >= '\x0000' && x <= '\x0006', x >= '\x0008' && x <= '\x000B',
-    x >='\x000D' && x <= '\x000F', x >= '\x0017' && x <= '\x001F', x >= '\x0020' && x <= '\x0022', x >= '\x0026' && x <= '\x003B', x >= '\x003F' && x <= '\x0040',
-      x == '\x005C', x >= '\x005F' && x <= '\x0060',  x >= '\x007B' && x <= '\x007F', x == '\x00A0', x == '\x00AB', x == '\x00BB', x >= '\x0430' && x <= '\x0449',
-        x== '\x044C', x >= '\x044E' && x <= '\x044F', x == '\x0454', x >= '\x0456' && x <= '\x0457', x == '\x0491', x >= '\x2002' && x <= '\x2014', x == '\x2026',
-          x >= '\x2028' && x <= '\x2029', x >= '\x2047' && x <= '\x2049', x >= '\x20A0' && x <= '\x20A4', x == '\x20AC', x == '\x20B4', x == '\x2103',
-            x == '\x2109', x == '\x2122']) . map firstChange . concatMap readEnglishWithUkrainian . unwords . map (\x -> if all DC.isDigit x then concatMap numberSounds x else x) $
-              words xs
+  changeAssimilative . separatePunct0 . ukrainianToMoreSounding . changeH2X . C.pack . change2BS . filter isFiltered . map firstChange . concatMap readEnglishWithUkrainian . unwords . 
+    map (\x -> if all DC.isDigit x then concatMap numberSounds x else x) . words $ xs
+
+-- | Function-predicate to filter the characters used for further processment 
+-- Функція-предикат, яка використовується для фільтрування потрібних символів для наступної обробки
+isFiltered :: Char -> Bool
+isFiltered x | x >= '\x044C' = 
+  if x >= '\x02028'
+    then if x >= '\x20AC'
+           then x == '\x20AC' || x == '\x20B4' || x == '\x2103' || x == '\x2109' || x == '\x2122'
+           else x <= '\x2029' || (x >= '\x2047' && x <= '\x2049') || (x >= '\x20A0' && x <= '\x20A4') 
+    else if x <= '\x0457'
+           then if x >= '\x0454'
+                  then x /= '\x0455' && x <= '\x0457'
+                  else x /= '\x044D' && x <= '\x044F'
+           else x == '\x0491' || (x >= '\x2002' && x <= '\x2014') || x == '\x2026'
+             | otherwise = 
+  if x >= '\x003F'
+    then if x >= '\x007B'
+           then if x >= '\x00BB'
+                  then x == '\x00BB' || (x >= '\x0430' && x <= '\x0449')
+                  else (x >= '\x007B' && x <= '\x007F') || x == '\x00A0' || x == '\x00AB'
+           else x == '\x003F' || x == '\x0040' || x == '\x005C' || x == '\x005F' || x == '\x0060'
+    else if x <= '\x000F'
+           then x /= '\x000C' && x /= '\x0007'
+           else (x >= '\x0017' && x <= '\x001F') || (x >= '\x0020' && x <= '\x0022') || (x >= '\x0026' && x <= '\x003B')
               
 -- | Function-predicate to check whether its argument is from the special volatile punctuation group that sets the duration of the additional pause
 -- Функція-предикат, яка перевіряє, чи її аргумент є зі спеціальної довільної групи, яка встановлює тривалість додаткової паузи
@@ -218,7 +235,7 @@ addSoftSign file =
 -- Функція, яка ділить неправильно озвучувані склади для абревіатур назв місяців мовою есперанто на дві частини
 hDivideMonths2:: ((String, String), (String, Integer)) -> [((String, String), (String, Integer))]
 hDivideMonths2 ((xs, ys), (zs, k)) = let y = head xs in if y >= 'j'
-  then if elem y "jmos"
+  then if y `elem` "jmos"
          then if y == 'j'
                 then case xs of
                   "jan" -> [(("ja", ys), (zs, k)),(("n", ys), (zs, 0))]
@@ -235,7 +252,7 @@ hDivideMonths2 ((xs, ys), (zs, k)) = let y = head xs in if y >= 'j'
                          "mar" -> [(("ma", ys), (zs, k)),(("r", ys), (zs, 0))]
                          _     -> [((xs, ys), (zs, k))]
          else [((xs, ys), (zs, k))]
-  else if elem y "adf"
+  else if y `elem` "adf"
          then case xs of
            "apr" -> [(("ap", ys), (zs, k)),(("r", ys), (zs, 0))]
            "dec" -> [(("de", ys), (zs, k)),(("c", ys), (zs, 0))]
@@ -389,7 +406,7 @@ ukrainianLast2 = fst . C.foldr f v
             (C.head . C.tail $ xs) == '\x0071' || (C.head . C.tail $ xs) == '\x0069']
                         then ('\x0013' `C.cons` zs, x `C.cons` xs)
                         else ('\x0049' `C.cons` zs, x `C.cons` xs)
-          _   -> let ys = C.dropWhile (not . (\z -> or [DC.isPunctuation z, z == '\x0007', z == '\x000C', z >= '\x0010' && z <= '\x0016', z >= '\x0041' && z <= '\x0047', z >= '\x0049' && z <= '\x005A', z == '\x005E', z >= '\x0061' && z <= '\x007A', z >= '\x00E1' && z <= '\x00F9'])) xs in if x < '\x0074'
+          _   -> let ys = C.dropWhile (not . isFilteredForLast2) xs in if x < '\x0074'
                    then case x of
                      '\x0064' | (not . C.null $ ys) && elem (C.head ys) "\x0073\x007A\x0063" ->
                         ('\x0064' `C.cons` '\x007A' `C.cons` zs, x `C.cons` xs)
@@ -413,6 +430,19 @@ ukrainianLast2 = fst . C.foldr f v
                           ('\x0045' `C.cons` zs, x `C.cons` xs)
                               | otherwise -> ('\x007A' `C.cons` zs, x `C.cons` xs)
                      _        -> (x `C.cons` zs, x `C.cons` xs)
+
+-- | Function-predicate that is used to eliminate the quantity of ukrainianLast2 applications
+-- Функція-предикат, яка використовується для зменшення кількості застосувань функції ukrainianLast2
+isFilteredForLast2 :: Char -> Bool
+isFilteredForLast2 z | z <= '\x005A' =
+  if z <= '\x0016'
+    then z >= '\x0010' || (z == '\x0007' || z == '\x000C')
+    else z >= '\x0041' && z /= '\x0048'
+                     | z <= '\x00F9' =
+  if z <= '\x007A'
+    then z >= '\x0061' || z == '\x005E'
+    else z >= '\x00E1' && z <= '\x00F9'
+                     | otherwise = DC.isPunctuation z                     
 
 -- | Function to convert Ukrainian "я", "ю", "є" and "ї" into some other String for syllables processing
 -- Функція для перетворення українських "я", "ю", "є" та "ї" на деякі інші рядки для обробки складів
@@ -442,7 +472,7 @@ ukrainianJotted1 = fst . C.foldr f v
                     | otherwise =
            if k == '\x0044'
              then (x `C.cons` '\x006A' `C.cons` '\x0069' `C.cons` C.tail ys, x `C.cons` xs)
-             else if or [k == '\x0047', k == '\x0046', k == '\x004A']
+             else if k == '\x0047' || k == '\x0046' || k == '\x004A'
                then if x >= '\x0030' && x <= '\x0039'
                  then (x `C.cons` '\x006A' `C.cons` jC k `C.cons` C.tail ys, x `C.cons` xs)
                  else if x >= '\x004B'
@@ -761,602 +791,698 @@ changeH2X xs | C.null xs = C.empty
 -- | Function that encode the Unicode characters from '\x0430' to '\x2122' for using in the Data.ByteString.Lazy.Char8 functions
 -- Функція, що кодує Unicode символи з '\x0430' по '\x2122' для використання у Data.ByteString.Lazy.Char8 функціях
 change2BS :: String -> String
-change2BS (x:y:z:xs) = if y == '\x044C'
-    then if x >= '\x0440'
-           then if x >= '\x0446'
-                  then if x >= '\x0449'
-                         then case x of
-                           '\x0449' -> '\x0016':change2BS (z:xs)
-                           '\x0491' -> '\x0052':change2BS (z:xs)
-                           _        -> change2BS (x:z:xs)
-                         else case x of
-                           '\x0446' -> '\x0013':change2BS (z:xs)
-                           '\x0447' -> '\x0014':change2BS (z:xs)
-                           '\x0448' -> '\x0015':change2BS (z:xs)
-                           _        -> change2BS (x:z:xs)
-                  else if x >= '\x0444'
-                         then case x of
-                           '\x0444' -> '\x0011':change2BS (z:xs)
-                           '\x0445' -> '\x0012':change2BS (z:xs)
-                           _        -> change2BS (x:z:xs)
-                         else case x of
-                           '\x0440' -> '\x0007':change2BS (z:xs)
-                           '\x0441' -> '\x000C':change2BS (z:xs)
-                           '\x0442' -> '\x0010':change2BS (z:xs)
-                           _        -> change2BS (x:z:xs)
-           else if x <= '\x0436'
-                  then if x <= '\x0433'
-                         then case x of
-                           '\x0431' -> '\x005E':change2BS (z:xs)
-                           '\x0432' -> '\x0078':change2BS (z:xs)
-                           '\x0433' -> '\x001F':change2BS (z:xs)
-                           _        -> change2BS (x:z:xs)
-                         else case x of
-                           '\x0434' -> '\x0053':change2BS (z:xs)
-                           '\x0436' -> '\x0054':change2BS (z:xs)
-                           _        -> change2BS (x:z:xs)
-                  else if x >= '\x043C'
-                         then case x of
-                           '\x043C' -> '\x0058':change2BS (z:xs)
-                           '\x043D' -> '\x0059':change2BS (z:xs)
-                           '\x043F' -> '\x005A':change2BS (z:xs)
-                           _        -> change2BS (x:z:xs)
-                         else case x of
-                           '\x0437' -> '\x0055':change2BS (z:xs)
-                           '\x043A' -> '\x0056':change2BS (z:xs)
-                           '\x043B' -> '\x0057':change2BS (z:xs)
-                           _        -> change2BS (x:z:xs)
-    else if x == '\x0434'
-           then case y of
-             '\x0437' -> if z == '\x044C'
-                      then '\x0051':change2BS xs
-                      else '\x004F':change2BS (z:xs)
-             '\x0436' -> if z == '\x044C'
-                      then '\x0050':change2BS xs
-                      else '\x0077':change2BS (z:xs)
-             _        -> '\x0064':change2BS (y:z:xs)
-           else if x >= '\x2003'
-                  then if x >= '\x2014'
-                         then if x >= '\x20A2'
-                                then if x >= '\x20B4'
-                                       then if x >= '\x2109'
-                                              then case x of
-                                                '\x2109' -> '\x00A2':change2BS (y:z:xs)
-                                                '\x2122' -> '\x00A8':change2BS (y:z:xs)
-                                                _        -> x:change2BS (y:z:xs)
-                                              else case x of
-                                                '\x20B4' -> '\x00FF':change2BS (y:z:xs)
-                                                '\x2103' -> '\x00A5':change2BS (y:z:xs)
-                                                _        -> x:change2BS (y:z:xs)
-                                       else if x <= '\x20A3'
-                                              then case x of
-                                                '\x20A2' -> '\x00FC':change2BS (y:z:xs)
-                                                '\x20A3' -> '\x00FD':change2BS (y:z:xs)
-                                                _        -> x:change2BS (y:z:xs)
-                                              else case x of
-                                                '\x20A4' -> '\x00FE':change2BS (y:z:xs)
-                                                '\x20AC' -> '\x00B5':change2BS (y:z:xs)
-                                                _        -> x:change2BS (y:z:xs)
-                                else if x <= '\x2047'
-                                       then if x >= '\x2029'
-                                              then case x of
-                                                '\x2029' -> '\x00F6':change2BS (y:z:xs)
-                                                '\x2047' -> '\x00F7':change2BS (y:z:xs)
-                                                _        -> x:change2BS (y:z:xs)
-                                              else case x of
-                                                '\x2014' -> '\x004D':change2BS (y:z:xs)
-                                                '\x2026' -> '.':'.':'.':change2BS (y:z:xs)
-                                                '\x2028' -> '\x00F5':change2BS (y:z:xs)
-                                                _        -> x:change2BS (y:z:xs)
-                                       else if x <= '\x2049'
-                                              then case x of
-                                                '\x2048' -> '\x00F8':change2BS (y:z:xs)
-                                                '\x2049' -> '\x00F9':change2BS (y:z:xs)
-                                                _        -> x:change2BS (y:z:xs)
-                                              else case x of
-                                                '\x20A0' -> '\x00FA':change2BS (y:z:xs)
-                                                '\x20A1' -> '\x00FB':change2BS (y:z:xs)
-                                                _        -> x:change2BS (y:z:xs)
-                         else if  x <= '\x200A'
-                                then if x >= '\x2007'
-                                       then if x >= '\x2009'
-                                              then case x of
-                                                '\x2009' -> '\x00E8':change2BS (y:z:xs)
-                                                '\x200A' -> '\x00E9':change2BS (y:z:xs)
-                                                _        -> x:change2BS (y:z:xs)
-                                              else case x of
-                                                '\x2007' -> '\x00E6':change2BS (y:z:xs)
-                                                '\x2008' -> '\x00E7':change2BS (y:z:xs)
-                                                _        -> x:change2BS (y:z:xs)
-                                       else if x <= '\x2004'
-                                              then case x of
-                                                '\x2003' -> '\x00E2':change2BS (y:z:xs)
-                                                '\x2004' -> '\x00E3':change2BS (y:z:xs)
-                                                _        -> x:change2BS (y:z:xs)
-                                              else case x of
-                                                '\x2005' -> '\x00E4':change2BS (y:z:xs)
-                                                '\x2006' -> '\x00E5':change2BS (y:z:xs)
-                                                _        -> x:change2BS (y:z:xs)
-                                else if x <= '\x200E'
-                                       then if x >= '\x200D'
-                                              then case x of
-                                                '\x200D' -> '\x00EC':change2BS (y:z:xs)
-                                                '\x200E' -> '\x00ED':change2BS (y:z:xs)
-                                                _        -> x:change2BS (y:z:xs)
-                                              else case x of
-                                                '\x200B' -> '\x00EA':change2BS (y:z:xs)
-                                                '\x200C' -> '\x00EB':change2BS (y:z:xs)
-                                                _        -> x:change2BS (y:z:xs)
-                                       else if x <= '\x2011'
-                                              then case x of
-                                                '\x200F' -> '\x00EE':change2BS (y:z:xs)
-                                                '\x2010' -> '\x00EF':change2BS (y:z:xs)
-                                                '\x2011' -> '\x00F0':change2BS (y:z:xs)
-                                                _        -> x:change2BS (y:z:xs)
-                                              else case x of
-                                                '\x2012' -> '\x00F1':change2BS (y:z:xs)
-                                                '\x2013' -> '\x004C':change2BS (y:z:xs)
-                                                _        -> x:change2BS (y:z:xs)
-                  else if x <= '\x0440'
-                         then if x >= '\x0438'
-                                then if x >= '\x043D'
-                                       then if x >= '\x043F'
-                                              then case x of
-                                                '\x043F' -> '\x0070':change2BS (y:z:xs)
-                                                '\x0440' -> '\x0072':change2BS (y:z:xs)
-                                                _        -> x:change2BS (y:z:xs)
-                                              else case x of
-                                                '\x043D' -> '\x006E':change2BS (y:z:xs)
-                                                '\x043E' -> '\x006F':change2BS (y:z:xs)
-                                                _        -> x:change2BS (y:z:xs)
-                                       else if x <= '\x043A'
-                                              then case x of
-                                                '\x0438' -> '\x0079':change2BS (y:z:xs)
-                                                '\x0439' -> '\x006A':change2BS (y:z:xs)
-                                                '\x043A' -> '\x006B':change2BS (y:z:xs)
-                                                _        -> x:change2BS (y:z:xs)
-                                              else case x of
-                                                '\x043B' -> '\x006C':change2BS (y:z:xs)
-                                                '\x043C' -> '\x006D':change2BS (y:z:xs)
-                                                _        -> x:change2BS (y:z:xs)
-                                else if x <= '\x0433'
-                                       then if x >= '\x0432'
-                                              then case x of
-                                                '\x0432' -> '\x0076':change2BS (y:z:xs)
-                                                '\x0433' -> '\x0041':change2BS (y:z:xs)
-                                                _        -> x:change2BS (y:z:xs)
-                                              else case x of
-                                                '\x0027' -> '\x004B':change2BS (y:z:xs)
-                                                '\x0430' -> '\x0061':change2BS (y:z:xs)
-                                                '\x0431' -> '\x0062':change2BS (y:z:xs)
-                                                _        -> x:change2BS (y:z:xs)
-                                       else if x <= '\x0435'
-                                              then case x of
-                                                '\x0434' -> '\x0064':change2BS (y:z:xs)
-                                                '\x0435' -> '\x0065':change2BS (y:z:xs)
-                                                _        -> x:change2BS (y:z:xs)
-                                              else case x of
-                                                '\x0436' -> '\x0045':change2BS (y:z:xs)
-                                                '\x0437' -> '\x007A':change2BS (y:z:xs)
-                                                _        -> x:change2BS (y:z:xs)
-                         else if  x <= '\x0449'
-                                then if x >= '\x0445'
-                                       then if x >= '\x0448'
-                                              then case x of
-                                                '\x0448' -> '\x0042':change2BS (y:z:xs)
-                                                '\x0449' -> '\x0043':change2BS (y:z:xs)
-                                                _        -> x:change2BS (y:z:xs)
-                                              else case x of
-                                                '\x0445' -> '\x0068':change2BS (y:z:xs)
-                                                '\x0446' -> '\x0063':change2BS (y:z:xs)
-                                                '\x0447' -> '\x0049':change2BS (y:z:xs)
-                                                _        -> x:change2BS (y:z:xs)
-                                       else if x <= '\x0442'
-                                              then case x of
-                                                '\x0441' -> '\x0073':change2BS (y:z:xs)
-                                                '\x0442' -> '\x0074':change2BS (y:z:xs)
-                                                _        -> x:change2BS (y:z:xs)
-                                              else case x of
-                                                '\x0443' -> '\x0075':change2BS (y:z:xs)
-                                                '\x0444' -> '\x0066':change2BS (y:z:xs)
-                                                _        -> x:change2BS (y:z:xs)
-                                else if x <= '\x0454'
-                                       then if x >= '\x044F'
-                                              then case x of
-                                                '\x044F' -> '\x0047':change2BS (y:z:xs)
-                                                '\x0454' -> '\x0046':change2BS (y:z:xs)
-                                                _        -> x:change2BS (y:z:xs)
-                                              else case x of
-                                                '\x044C' -> '\x0071':change2BS (y:z:xs)
-                                                '\x044E' -> '\x004A':change2BS (y:z:xs)
-                                                _        -> x:change2BS (y:z:xs)
-                                       else if x <= '\x0457'
-                                              then case x of
-                                                '\x0456' -> '\x0069':change2BS (y:z:xs)
-                                                '\x0457' -> '\x0044':change2BS (y:z:xs)
-                                                _        -> x:change2BS (y:z:xs)
-                                              else case x of
-                                                '\x0491' -> '\x0067':change2BS (y:z:xs)
-                                                '\x2002' -> '\x00E1':change2BS (y:z:xs)
-                                                _        -> x:change2BS (y:z:xs)
-change2BS [x,y] = if y == '\x044C'
-    then if x >= '\x0440'
-           then if x >= '\x0446'
-                  then if x >= '\x0448'
-                         then case x of
-                           '\x0449' -> "\x0016"
-                           '\x0491' -> "\x0052"
-                           _   -> change2BS [x]
-                         else case x of
-                           '\x0446' -> "\x0013"
-                           '\x0447' -> "\x0014"
-                           '\x0448' -> "\x0015"
-                           _   -> change2BS [x]
-                  else if x <= '\x0442'
-                         then case x of
-                           '\x0440' -> "\x0007"
-                           '\x0441' -> "\x000C"
-                           '\x0442' -> "\x0010"
-                           _   -> change2BS [x]
-                         else case x of
-                           '\x0444' -> "\x0011"
-                           '\x0445' -> "\x0012"
-                           _   -> change2BS [x]
-           else if x <= '\x0436'
-                  then if x >= '\x0434'
-                         then case x of
-                           '\x0434' -> "\x0053"
-                           '\x0436' -> "\x0054"
-                           _   -> change2BS [x]
-                         else case x of
-                           '\x0431' -> "\x005E"
-                           '\x0432' -> "\x0078"
-                           '\x0433' -> "\x001F"
-                           _   -> change2BS [x]
-                  else if x <= '\x043B'
-                         then case x of
-                           '\x0437' -> "\x0055"
-                           '\x043A' -> "\x0056"
-                           '\x043B' -> "\x0057"
-                           _   -> change2BS [x]
-                         else case x of
-                           '\x043C' -> "\x0058"
-                           '\x043D' -> "\x0059"
-                           '\x043F' -> "\x005A"
-                           _   -> change2BS [x]
-    else if x == '\x0434'
-           then case y of
-             '\x0437' -> "\x004F"
-             '\x0436' -> "\x0077"
-             _   -> '\x0064':change2BS [y]
-           else if x >= '\x2003'
-                  then if x >= '\x2014'
-                         then if x >= '\x20A2'
-                                then if x >= '\x20B4'
-                                       then if x >= '\x2109'
-                                              then case x of
-                                                '\x2109' -> '\x00A2':change2BS [y]
-                                                '\x2122' -> '\x00A8':change2BS [y]
-                                                _        -> x:change2BS [y]
-                                              else case x of
-                                                '\x20B4' -> '\x00FF':change2BS [y]
-                                                '\x2103' -> '\x00A5':change2BS [y]
-                                                _        -> x:change2BS [y]
-                                       else if x <= '\x20A3'
-                                              then case x of
-                                                '\x20A2' -> '\x00FC':change2BS [y]
-                                                '\x20A3' -> '\x00FD':change2BS [y]
-                                                _        -> x:change2BS [y]
-                                              else case x of
-                                                '\x20A4' -> '\x00FE':change2BS [y]
-                                                '\x20AC' -> '\x00B5':change2BS [y]
-                                                _        -> x:change2BS [y]
-                                else if x <= '\x2047'
-                                       then if x >= '\x2029'
-                                              then case x of
-                                                '\x2029' -> '\x00F6':change2BS [y]
-                                                '\x2047' -> '\x00F7':change2BS [y]
-                                                _        -> x:change2BS [y]
-                                              else case x of
-                                                '\x2014' -> '\x004D':change2BS [y]
-                                                '\x2026' -> '.':'.':'.':change2BS [y]
-                                                '\x2028' -> '\x00F5':change2BS [y]
-                                                _        -> x:change2BS [y]
-                                       else if x <= '\x2049'
-                                              then case x of
-                                                '\x2048' -> '\x00F8':change2BS [y]
-                                                '\x2049' -> '\x00F9':change2BS [y]
-                                                _        -> x:change2BS [y]
-                                              else case x of
-                                                '\x20A0' -> '\x00FA':change2BS [y]
-                                                '\x20A1' -> '\x00FB':change2BS [y]
-                                                _        -> x:change2BS [y]
-                         else if  x <= '\x200A'
-                                then if x >= '\x2007'
-                                       then if x >= '\x2009'
-                                              then case x of
-                                                '\x2009' -> '\x00E8':change2BS [y]
-                                                '\x200A' -> '\x00E9':change2BS [y]
-                                                _        -> x:change2BS [y]
-                                              else case x of
-                                                '\x2007' -> '\x00E6':change2BS [y]
-                                                '\x2008' -> '\x00E7':change2BS [y]
-                                                _        -> x:change2BS [y]
-                                       else if x <= '\x2004'
-                                              then case x of
-                                                '\x2003' -> '\x00E2':change2BS [y]
-                                                '\x2004' -> '\x00E3':change2BS [y]
-                                                _        -> x:change2BS [y]
-                                              else case x of
-                                                '\x2005' -> '\x00E4':change2BS [y]
-                                                '\x2006' -> '\x00E5':change2BS [y]
-                                                _        -> x:change2BS [y]
-                                else if x <= '\x200E'
-                                       then if x >= '\x200D'
-                                              then case x of
-                                                '\x200D' -> '\x00EC':change2BS [y]
-                                                '\x200E' -> '\x00ED':change2BS [y]
-                                                _        -> x:change2BS [y]
-                                              else case x of
-                                                '\x200B' -> '\x00EA':change2BS [y]
-                                                '\x200C' -> '\x00EB':change2BS [y]
-                                                _        -> x:change2BS [y]
-                                       else if x <= '\x2011'
-                                              then case x of
-                                                '\x200F' -> '\x00EE':change2BS [y]
-                                                '\x2010' -> '\x00EF':change2BS [y]
-                                                '\x2011' -> '\x00F0':change2BS [y]
-                                                _        -> x:change2BS [y]
-                                              else case x of
-                                                '\x2012' -> '\x00F1':change2BS [y]
-                                                '\x2013' -> '\x004C':change2BS [y]
-                                                _        -> x:change2BS [y]
-                  else if x <= '\x0440'
-                         then if x >= '\x0438'
-                                then if x >= '\x043D'
-                                       then if x >= '\x043F'
-                                              then case x of
-                                                '\x043F' -> '\x0070':change2BS [y]
-                                                '\x0440' -> '\x0072':change2BS [y]
-                                                _        -> x:change2BS [y]
-                                              else case x of
-                                                '\x043D' -> '\x006E':change2BS [y]
-                                                '\x043E' -> '\x006F':change2BS [y]
-                                                _        -> x:change2BS [y]
-                                       else if x <= '\x043A'
-                                              then case x of
-                                                '\x0438' -> '\x0079':change2BS [y]
-                                                '\x0439' -> '\x006A':change2BS [y]
-                                                '\x043A' -> '\x006B':change2BS [y]
-                                                _        -> x:change2BS [y]
-                                              else case x of
-                                                '\x043B' -> '\x006C':change2BS [y]
-                                                '\x043C' -> '\x006D':change2BS [y]
-                                                _        -> x:change2BS [y]
-                                else if x <= '\x0433'
-                                       then if x >= '\x0432'
-                                              then case x of
-                                                '\x0432' -> '\x0076':change2BS [y]
-                                                '\x0433' -> '\x0041':change2BS [y]
-                                                _        -> x:change2BS [y]
-                                              else case x of
-                                                '\x0027' -> '\x004B':change2BS [y]
-                                                '\x0430' -> '\x0061':change2BS [y]
-                                                '\x0431' -> '\x0062':change2BS [y]
-                                                _        -> x:change2BS [y]
-                                       else if x <= '\x0435'
-                                              then case x of
-                                                '\x0434' -> '\x0064':change2BS [y]
-                                                '\x0435' -> '\x0065':change2BS [y]
-                                                _        -> x:change2BS [y]
-                                              else case x of
-                                                '\x0436' -> '\x0045':change2BS [y]
-                                                '\x0437' -> '\x007A':change2BS [y]
-                                                _        -> x:change2BS [y]
-                         else if  x <= '\x0449'
-                                then if x >= '\x0445'
-                                       then if x >= '\x0448'
-                                              then case x of
-                                                '\x0448' -> '\x0042':change2BS [y]
-                                                '\x0449' -> '\x0043':change2BS [y]
-                                                _        -> x:change2BS [y]
-                                              else case x of
-                                                '\x0445' -> '\x0068':change2BS [y]
-                                                '\x0446' -> '\x0063':change2BS [y]
-                                                '\x0447' -> '\x0049':change2BS [y]
-                                                _        -> x:change2BS [y]
-                                       else if x <= '\x0442'
-                                              then case x of
-                                                '\x0441' -> '\x0073':change2BS [y]
-                                                '\x0442' -> '\x0074':change2BS [y]
-                                                _        -> x:change2BS [y]
-                                              else case x of
-                                                '\x0443' -> '\x0075':change2BS [y]
-                                                '\x0444' -> '\x0066':change2BS [y]
-                                                _        -> x:change2BS [y]
-                                else if x <= '\x0454'
-                                       then if x >= '\x044F'
-                                              then case x of
-                                                '\x044F' -> '\x0047':change2BS [y]
-                                                '\x0454' -> '\x0046':change2BS [y]
-                                                _        -> x:change2BS [y]
-                                              else case x of
-                                                '\x044C' -> '\x0071':change2BS [y]
-                                                '\x044E' -> '\x004A':change2BS [y]
-                                                _        -> x:change2BS [y]
-                                       else if x <= '\x0457'
-                                              then case x of
-                                                '\x0456' -> '\x0069':change2BS [y]
-                                                '\x0457' -> '\x0044':change2BS [y]
-                                                _        -> x:change2BS [y]
-                                              else case x of
-                                                '\x0491' -> '\x0067':change2BS [y]
-                                                '\x2002' -> '\x00E1':change2BS [y]
-                                                _        -> x:change2BS [y]
-change2BS [x] = if x >= '\x2003'
-                  then if x >= '\x2014'
-                         then if x >= '\x20A2'
-                                then if x >= '\x20B4'
-                                       then if x >= '\x2109'
-                                              then case x of
-                                                '\x2109' -> "\x00A2"
-                                                '\x2122' -> "\x00A8"
-                                                _        -> [x]
-                                              else case x of
-                                                '\x20B4' -> "\x00FF"
-                                                '\x2103' -> "\x00A5"
-                                                _        -> [x]
-                                       else if x <= '\x20A3'
-                                              then case x of
-                                                '\x20A2' -> "\x00FC"
-                                                '\x20A3' -> "\x00FD"
-                                                _        -> [x]
-                                              else case x of
-                                                '\x20A4' -> "\x00FE"
-                                                '\x20AC' -> "\x00B5"
-                                                _        -> [x]
-                                else if x <= '\x2047'
-                                       then if x >= '\x2029'
-                                              then case x of
-                                                '\x2029' -> "\x00F6"
-                                                '\x2047' -> "\x00F7"
-                                                _        -> [x]
-                                              else case x of
-                                                '\x2014' -> "\x004D"
-                                                '\x2026' -> "..."
-                                                '\x2028' -> "\x00F5"
-                                                _        -> [x]
-                                       else if x <= '\x2049'
-                                              then case x of
-                                                '\x2048' -> "\x00F8"
-                                                '\x2049' -> "\x00F9"
-                                                _        -> [x]
-                                              else case x of
-                                                '\x20A0' -> "\x00FA"
-                                                '\x20A1' -> "\x00FB"
-                                                _        -> [x]
-                         else if  x <= '\x200A'
-                                then if x >= '\x2007'
-                                       then if x >= '\x2009'
-                                              then case x of
-                                                '\x2009' -> "\x00E8"
-                                                '\x200A' -> "\x00E9"
-                                                _        -> [x]
-                                              else case x of
-                                                '\x2007' -> "\x00E6"
-                                                '\x2008' -> "\x00E7"
-                                                _        -> [x]
-                                       else if x <= '\x2004'
-                                              then case x of
-                                                '\x2003' -> "\x00E2"
-                                                '\x2004' -> "\x00E3"
-                                                _        -> [x]
-                                              else case x of
-                                                '\x2005' -> "\x00E4"
-                                                '\x2006' -> "\x00E5"
-                                                _        -> [x]
-                                else if x <= '\x200E'
-                                       then if x >= '\x200D'
-                                              then case x of
-                                                '\x200D' -> "\x00EC"
-                                                '\x200E' -> "\x00ED"
-                                                _        -> [x]
-                                              else case x of
-                                                '\x200B' -> "\x00EA"
-                                                '\x200C' -> "\x00EB"
-                                                _        -> [x]
-                                       else if x <= '\x2011'
-                                              then case x of
-                                                '\x200F' -> "\x00EE"
-                                                '\x2010' -> "\x00EF"
-                                                '\x2011' -> "\x00F0"
-                                                _        -> [x]
-                                              else case x of
-                                                '\x2012' -> "\x00F1"
-                                                '\x2013' -> "\x004C"
-                                                _        -> [x]
-                  else if x <= '\x0440'
-                         then if x >= '\x0438'
-                                then if x >= '\x043D'
-                                       then if x >= '\x043F'
-                                              then case x of
-                                                '\x043F' -> "\x0070"
-                                                '\x0440' -> "\x0072"
-                                                _        -> [x]
-                                              else case x of
-                                                '\x043D' -> "\x006E"
-                                                '\x043E' -> "\x006F"
-                                                _        -> [x]
-                                       else if x <= '\x043A'
-                                              then case x of
-                                                '\x0438' -> "\x0079"
-                                                '\x0439' -> "\x006A"
-                                                '\x043A' -> "\x006B"
-                                                _        -> [x]
-                                              else case x of
-                                                '\x043B' -> "\x006C"
-                                                '\x043C' -> "\x006D"
-                                                _        -> [x]
-                                else if x <= '\x0433'
-                                       then if x >= '\x0432'
-                                              then case x of
-                                                '\x0432' -> "\x0076"
-                                                '\x0433' -> "\x0041"
-                                                _        -> [x]
-                                              else case x of
-                                                '\x0027' -> "\x004B"
-                                                '\x0430' -> "\x0061"
-                                                '\x0431' -> "\x0062"
-                                                _        -> [x]
-                                       else if x <= '\x0435'
-                                              then case x of
-                                                '\x0434' -> "\x0064"
-                                                '\x0435' -> "\x0065"
-                                                _        -> [x]
-                                              else case x of
-                                                '\x0436' -> "\x0045"
-                                                '\x0437' -> "\x007A"
-                                                _        -> [x]
-                         else if  x <= '\x0449'
-                                then if x >= '\x0445'
-                                       then if x >= '\x0448'
-                                              then case x of
-                                                '\x0448' -> "\x0042"
-                                                '\x0449' -> "\x0043"
-                                                _        -> [x]
-                                              else case x of
-                                                '\x0445' -> "\x0068"
-                                                '\x0446' -> "\x0063"
-                                                '\x0447' -> "\x0049"
-                                                _        -> [x]
-                                       else if x <= '\x0442'
-                                              then case x of
-                                                '\x0441' -> "\x0073"
-                                                '\x0442' -> "\x0074"
-                                                _        -> [x]
-                                              else case x of
-                                                '\x0443' -> "\x0075"
-                                                '\x0444' -> "\x0066"
-                                                _        -> [x]
-                                else if x <= '\x0454'
-                                       then if x >= '\x044F'
-                                              then case x of
-                                                '\x044F' -> "\x0047"
-                                                '\x0454' -> "\x0046"
-                                                _        -> [x]
-                                              else case x of
-                                                '\x044C' -> "\x0071"
-                                                '\x044E' -> "\x004A"
-                                                _        -> [x]
-                                       else if x <= '\x0457'
-                                              then case x of
-                                                '\x0456' -> "\x0069"
-                                                '\x0457' -> "\x0044"
-                                                _        -> [x]
-                                              else case x of
-                                                '\x0491' -> "\x0067"
-                                                '\x2002' -> "\x00E1"
-                                                _        -> [x]
+change2BS (x : (y : (z : xs)))
+  | y == '\1100' =
+    if x >= '\1088' then
+      if x >= '\1094' then
+        if x >= '\1097' then
+          case x of
+              '\1097' -> '\SYN' : change2BS (z : xs)
+              '\1169' -> 'R' : change2BS (z : xs)
+              _ -> change2BS (x : z : xs)
+          else
+          case x of
+              '\1094' -> '\DC3' : change2BS (z : xs)
+              '\1095' -> '\DC4' : change2BS (z : xs)
+              '\1096' -> '\NAK' : change2BS (z : xs)
+              _ -> change2BS (x : z : xs)
+        else
+        if x >= '\1092' then
+          case x of
+              '\1092' -> '\DC1' : change2BS (z : xs)
+              '\1093' -> '\DC2' : change2BS (z : xs)
+              _ -> change2BS (x : z : xs)
+          else
+          case x of
+              '\1088' -> '\a' : change2BS (z : xs)
+              '\1089' -> '\f' : change2BS (z : xs)
+              '\1090' -> '\DLE' : change2BS (z : xs)
+              _ -> change2BS (x : z : xs)
+      else
+      if x <= '\1078' then
+        if x <= '\1075' then
+          case x of
+              '\1073' -> '^' : change2BS (z : xs)
+              '\1074' -> 'x' : change2BS (z : xs)
+              '\1075' -> '\US' : change2BS (z : xs)
+              _ -> change2BS (x : z : xs)
+          else
+          case x of
+              '\1076' -> 'S' : change2BS (z : xs)
+              '\1078' -> 'T' : change2BS (z : xs)
+              _ -> change2BS (x : z : xs)
+        else
+        if x >= '\1084' then
+          case x of
+              '\1084' -> 'X' : change2BS (z : xs)
+              '\1085' -> 'Y' : change2BS (z : xs)
+              '\1087' -> 'Z' : change2BS (z : xs)
+              _ -> change2BS (x : z : xs)
+          else
+          case x of
+              '\1079' -> 'U' : change2BS (z : xs)
+              '\1082' -> 'V' : change2BS (z : xs)
+              '\1083' -> 'W' : change2BS (z : xs)
+              _ -> change2BS (x : z : xs)
+  | x == '\1076' =
+    case y of
+        '\1079' -> if z == '\1100' then 'Q' : change2BS xs else
+                     'O' : change2BS (z : xs)
+        '\1078' -> if z == '\1100' then 'P' : change2BS xs else
+                     'w' : change2BS (z : xs)
+        _ -> 'd' : change2BS (y : z : xs)
+  | x >= '\8195' =
+    if x >= '\8212' then
+      if x >= '\8354' then
+        if x >= '\8372' then
+          if x >= '\8457' then
+            case x of
+                '\8457' -> '\162' : change2BS (y : z : xs)
+                '\8482' -> '\168' : change2BS (y : z : xs)
+                _ -> x : change2BS (y : z : xs)
+            else
+            case x of
+                '\8372' -> '\255' : change2BS (y : z : xs)
+                '\8451' -> '\165' : change2BS (y : z : xs)
+                _ -> x : change2BS (y : z : xs)
+          else
+          if x <= '\8355' then
+            case x of
+                '\8354' -> '\252' : change2BS (y : z : xs)
+                '\8355' -> '\253' : change2BS (y : z : xs)
+                _ -> x : change2BS (y : z : xs)
+            else
+            case x of
+                '\8356' -> '\254' : change2BS (y : z : xs)
+                '\8364' -> '\181' : change2BS (y : z : xs)
+                _ -> x : change2BS (y : z : xs)
+        else
+        if x <= '\8263' then
+          if x >= '\8233' then
+            case x of
+                '\8233' -> '\246' : change2BS (y : z : xs)
+                '\8263' -> '\247' : change2BS (y : z : xs)
+                _ -> x : change2BS (y : z : xs)
+            else
+            case x of
+                '\8212' -> 'M' : change2BS (y : z : xs)
+                '\8230' -> '.' : '.' : '.' : change2BS (y : z : xs)
+                '\8232' -> '\245' : change2BS (y : z : xs)
+                _ -> x : change2BS (y : z : xs)
+          else
+          if x <= '\8265' then
+            case x of
+                '\8264' -> '\248' : change2BS (y : z : xs)
+                '\8265' -> '\249' : change2BS (y : z : xs)
+                _ -> x : change2BS (y : z : xs)
+            else
+            case x of
+                '\8352' -> '\250' : change2BS (y : z : xs)
+                '\8353' -> '\251' : change2BS (y : z : xs)
+                _ -> x : change2BS (y : z : xs)
+      else
+      if x <= '\8202' then
+        if x >= '\8199' then
+          if x >= '\8201' then
+            case x of
+                '\8201' -> '\232' : change2BS (y : z : xs)
+                '\8202' -> '\233' : change2BS (y : z : xs)
+                _ -> x : change2BS (y : z : xs)
+            else
+            case x of
+                '\8199' -> '\230' : change2BS (y : z : xs)
+                '\8200' -> '\231' : change2BS (y : z : xs)
+                _ -> x : change2BS (y : z : xs)
+          else
+          if x <= '\8196' then
+            case x of
+                '\8195' -> '\226' : change2BS (y : z : xs)
+                '\8196' -> '\227' : change2BS (y : z : xs)
+                _ -> x : change2BS (y : z : xs)
+            else
+            case x of
+                '\8197' -> '\228' : change2BS (y : z : xs)
+                '\8198' -> '\229' : change2BS (y : z : xs)
+                _ -> x : change2BS (y : z : xs)
+        else
+        if x <= '\8206' then
+          if x >= '\8205' then
+            case x of
+                '\8205' -> '\236' : change2BS (y : z : xs)
+                '\8206' -> '\237' : change2BS (y : z : xs)
+                _ -> x : change2BS (y : z : xs)
+            else
+            case x of
+                '\8203' -> '\234' : change2BS (y : z : xs)
+                '\8204' -> '\235' : change2BS (y : z : xs)
+                _ -> x : change2BS (y : z : xs)
+          else
+          if x <= '\8209' then
+            case x of
+                '\8207' -> '\238' : change2BS (y : z : xs)
+                '\8208' -> '\239' : change2BS (y : z : xs)
+                '\8209' -> '\240' : change2BS (y : z : xs)
+                _ -> x : change2BS (y : z : xs)
+            else
+            case x of
+                '\8210' -> '\241' : change2BS (y : z : xs)
+                '\8211' -> 'L' : change2BS (y : z : xs)
+                _ -> x : change2BS (y : z : xs)
+  | x <= '\1088' =
+    if x >= '\1080' then
+      if x >= '\1085' then
+        if x >= '\1087' then
+          case x of
+              '\1087' -> 'p' : change2BS (y : z : xs)
+              '\1088' -> 'r' : change2BS (y : z : xs)
+              _ -> x : change2BS (y : z : xs)
+          else
+          case x of
+              '\1085' -> 'n' : change2BS (y : z : xs)
+              '\1086' -> 'o' : change2BS (y : z : xs)
+              _ -> x : change2BS (y : z : xs)
+        else
+        if x <= '\1082' then
+          case x of
+              '\1080' -> 'y' : change2BS (y : z : xs)
+              '\1081' -> 'j' : change2BS (y : z : xs)
+              '\1082' -> 'k' : change2BS (y : z : xs)
+              _ -> x : change2BS (y : z : xs)
+          else
+          case x of
+              '\1083' -> 'l' : change2BS (y : z : xs)
+              '\1084' -> 'm' : change2BS (y : z : xs)
+              _ -> x : change2BS (y : z : xs)
+      else
+      if x <= '\1075' then
+        if x >= '\1074' then
+          case x of
+              '\1074' -> 'v' : change2BS (y : z : xs)
+              '\1075' -> 'A' : change2BS (y : z : xs)
+              _ -> x : change2BS (y : z : xs)
+          else
+          case x of
+              '\'' -> 'K' : change2BS (y : z : xs)
+              '\1072' -> 'a' : change2BS (y : z : xs)
+              '\1073' -> 'b' : change2BS (y : z : xs)
+              _ -> x : change2BS (y : z : xs)
+        else
+        if x <= '\1077' then
+          case x of
+              '\1076' -> 'd' : change2BS (y : z : xs)
+              '\1077' -> 'e' : change2BS (y : z : xs)
+              _ -> x : change2BS (y : z : xs)
+          else
+          case x of
+              '\1078' -> 'E' : change2BS (y : z : xs)
+              '\1079' -> 'z' : change2BS (y : z : xs)
+              _ -> x : change2BS (y : z : xs)
+  | x <= '\1097' =
+    if x >= '\1093' then
+      if x >= '\1096' then
+        case x of
+            '\1096' -> 'B' : change2BS (y : z : xs)
+            '\1097' -> 'C' : change2BS (y : z : xs)
+            _ -> x : change2BS (y : z : xs)
+        else
+        case x of
+            '\1093' -> 'h' : change2BS (y : z : xs)
+            '\1094' -> 'c' : change2BS (y : z : xs)
+            '\1095' -> 'I' : change2BS (y : z : xs)
+            _ -> x : change2BS (y : z : xs)
+      else
+      if x <= '\1090' then
+        case x of
+            '\1089' -> 's' : change2BS (y : z : xs)
+            '\1090' -> 't' : change2BS (y : z : xs)
+            _ -> x : change2BS (y : z : xs)
+        else
+        case x of
+            '\1091' -> 'u' : change2BS (y : z : xs)
+            '\1092' -> 'f' : change2BS (y : z : xs)
+            _ -> x : change2BS (y : z : xs)
+  | x <= '\1108' =
+    if x >= '\1103' then
+      case x of
+          '\1103' -> 'G' : change2BS (y : z : xs)
+          '\1108' -> 'F' : change2BS (y : z : xs)
+          _ -> x : change2BS (y : z : xs)
+      else
+      case x of
+          '\1100' -> 'q' : change2BS (y : z : xs)
+          '\1102' -> 'J' : change2BS (y : z : xs)
+          _ -> x : change2BS (y : z : xs)
+  | x <= '\1111' =
+    case x of
+        '\1110' -> 'i' : change2BS (y : z : xs)
+        '\1111' -> 'D' : change2BS (y : z : xs)
+        _ -> x : change2BS (y : z : xs)
+  | otherwise =
+    case x of
+        '\1169' -> 'g' : change2BS (y : z : xs)
+        '\8194' -> '\225' : change2BS (y : z : xs)
+        _ -> x : change2BS (y : z : xs)
+change2BS [x, y]
+  | y == '\1100' =
+    if x >= '\1088' then
+      if x >= '\1094' then
+        if x >= '\1096' then
+          case x of
+              '\1097' -> "\SYN"
+              '\1169' -> "R"
+              _ -> change2BS [x]
+          else
+          case x of
+              '\1094' -> "\DC3"
+              '\1095' -> "\DC4"
+              '\1096' -> "\NAK"
+              _ -> change2BS [x]
+        else
+        if x <= '\1090' then
+          case x of
+              '\1088' -> "\a"
+              '\1089' -> "\f"
+              '\1090' -> "\DLE"
+              _ -> change2BS [x]
+          else
+          case x of
+              '\1092' -> "\DC1"
+              '\1093' -> "\DC2"
+              _ -> change2BS [x]
+      else
+      if x <= '\1078' then
+        if x >= '\1076' then
+          case x of
+              '\1076' -> "S"
+              '\1078' -> "T"
+              _ -> change2BS [x]
+          else
+          case x of
+              '\1073' -> "^"
+              '\1074' -> "x"
+              '\1075' -> "\US"
+              _ -> change2BS [x]
+        else
+        if x <= '\1083' then
+          case x of
+              '\1079' -> "U"
+              '\1082' -> "V"
+              '\1083' -> "W"
+              _ -> change2BS [x]
+          else
+          case x of
+              '\1084' -> "X"
+              '\1085' -> "Y"
+              '\1087' -> "Z"
+              _ -> change2BS [x]
+  | x == '\1076' =
+    case y of
+        '\1079' -> "O"
+        '\1078' -> "w"
+        _ -> 'd' : change2BS [y]
+  | x >= '\8195' =
+    if x >= '\8212' then
+      if x >= '\8354' then
+        if x >= '\8372' then
+          if x >= '\8457' then
+            case x of
+                '\8457' -> '\162' : change2BS [y]
+                '\8482' -> '\168' : change2BS [y]
+                _ -> x : change2BS [y]
+            else
+            case x of
+                '\8372' -> '\255' : change2BS [y]
+                '\8451' -> '\165' : change2BS [y]
+                _ -> x : change2BS [y]
+          else
+          if x <= '\8355' then
+            case x of
+                '\8354' -> '\252' : change2BS [y]
+                '\8355' -> '\253' : change2BS [y]
+                _ -> x : change2BS [y]
+            else
+            case x of
+                '\8356' -> '\254' : change2BS [y]
+                '\8364' -> '\181' : change2BS [y]
+                _ -> x : change2BS [y]
+        else
+        if x <= '\8263' then
+          if x >= '\8233' then
+            case x of
+                '\8233' -> '\246' : change2BS [y]
+                '\8263' -> '\247' : change2BS [y]
+                _ -> x : change2BS [y]
+            else
+            case x of
+                '\8212' -> 'M' : change2BS [y]
+                '\8230' -> '.' : '.' : '.' : change2BS [y]
+                '\8232' -> '\245' : change2BS [y]
+                _ -> x : change2BS [y]
+          else
+          if x <= '\8265' then
+            case x of
+                '\8264' -> '\248' : change2BS [y]
+                '\8265' -> '\249' : change2BS [y]
+                _ -> x : change2BS [y]
+            else
+            case x of
+                '\8352' -> '\250' : change2BS [y]
+                '\8353' -> '\251' : change2BS [y]
+                _ -> x : change2BS [y]
+      else
+      if x <= '\8202' then
+        if x >= '\8199' then
+          if x >= '\8201' then
+            case x of
+                '\8201' -> '\232' : change2BS [y]
+                '\8202' -> '\233' : change2BS [y]
+                _ -> x : change2BS [y]
+            else
+            case x of
+                '\8199' -> '\230' : change2BS [y]
+                '\8200' -> '\231' : change2BS [y]
+                _ -> x : change2BS [y]
+          else
+          if x <= '\8196' then
+            case x of
+                '\8195' -> '\226' : change2BS [y]
+                '\8196' -> '\227' : change2BS [y]
+                _ -> x : change2BS [y]
+            else
+            case x of
+                '\8197' -> '\228' : change2BS [y]
+                '\8198' -> '\229' : change2BS [y]
+                _ -> x : change2BS [y]
+        else
+        if x <= '\8206' then
+          if x >= '\8205' then
+            case x of
+                '\8205' -> '\236' : change2BS [y]
+                '\8206' -> '\237' : change2BS [y]
+                _ -> x : change2BS [y]
+            else
+            case x of
+                '\8203' -> '\234' : change2BS [y]
+                '\8204' -> '\235' : change2BS [y]
+                _ -> x : change2BS [y]
+          else
+          if x <= '\8209' then
+            case x of
+                '\8207' -> '\238' : change2BS [y]
+                '\8208' -> '\239' : change2BS [y]
+                '\8209' -> '\240' : change2BS [y]
+                _ -> x : change2BS [y]
+            else
+            case x of
+                '\8210' -> '\241' : change2BS [y]
+                '\8211' -> 'L' : change2BS [y]
+                _ -> x : change2BS [y]
+  | x <= '\1088' =
+    if x >= '\1080' then
+      if x >= '\1085' then
+        if x >= '\1087' then
+          case x of
+              '\1087' -> 'p' : change2BS [y]
+              '\1088' -> 'r' : change2BS [y]
+              _ -> x : change2BS [y]
+          else
+          case x of
+              '\1085' -> 'n' : change2BS [y]
+              '\1086' -> 'o' : change2BS [y]
+              _ -> x : change2BS [y]
+        else
+        if x <= '\1082' then
+          case x of
+              '\1080' -> 'y' : change2BS [y]
+              '\1081' -> 'j' : change2BS [y]
+              '\1082' -> 'k' : change2BS [y]
+              _ -> x : change2BS [y]
+          else
+          case x of
+              '\1083' -> 'l' : change2BS [y]
+              '\1084' -> 'm' : change2BS [y]
+              _ -> x : change2BS [y]
+      else
+      if x <= '\1075' then
+        if x >= '\1074' then
+          case x of
+              '\1074' -> 'v' : change2BS [y]
+              '\1075' -> 'A' : change2BS [y]
+              _ -> x : change2BS [y]
+          else
+          case x of
+              '\'' -> 'K' : change2BS [y]
+              '\1072' -> 'a' : change2BS [y]
+              '\1073' -> 'b' : change2BS [y]
+              _ -> x : change2BS [y]
+        else
+        if x <= '\1077' then
+          case x of
+              '\1076' -> 'd' : change2BS [y]
+              '\1077' -> 'e' : change2BS [y]
+              _ -> x : change2BS [y]
+          else
+          case x of
+              '\1078' -> 'E' : change2BS [y]
+              '\1079' -> 'z' : change2BS [y]
+              _ -> x : change2BS [y]
+  | x <= '\1097' =
+    if x >= '\1093' then
+      if x >= '\1096' then
+        case x of
+            '\1096' -> 'B' : change2BS [y]
+            '\1097' -> 'C' : change2BS [y]
+            _ -> x : change2BS [y]
+        else
+        case x of
+            '\1093' -> 'h' : change2BS [y]
+            '\1094' -> 'c' : change2BS [y]
+            '\1095' -> 'I' : change2BS [y]
+            _ -> x : change2BS [y]
+      else
+      if x <= '\1090' then
+        case x of
+            '\1089' -> 's' : change2BS [y]
+            '\1090' -> 't' : change2BS [y]
+            _ -> x : change2BS [y]
+        else
+        case x of
+            '\1091' -> 'u' : change2BS [y]
+            '\1092' -> 'f' : change2BS [y]
+            _ -> x : change2BS [y]
+  | x <= '\1108' =
+    if x >= '\1103' then
+      case x of
+          '\1103' -> 'G' : change2BS [y]
+          '\1108' -> 'F' : change2BS [y]
+          _ -> x : change2BS [y]
+      else
+      case x of
+          '\1100' -> 'q' : change2BS [y]
+          '\1102' -> 'J' : change2BS [y]
+          _ -> x : change2BS [y]
+  | x <= '\1111' =
+    case x of
+        '\1110' -> 'i' : change2BS [y]
+        '\1111' -> 'D' : change2BS [y]
+        _ -> x : change2BS [y]
+  | otherwise =
+    case x of
+        '\1169' -> 'g' : change2BS [y]
+        '\8194' -> '\225' : change2BS [y]
+        _ -> x : change2BS [y]
+change2BS [x]
+  | x >= '\8195' =
+    if x >= '\8212' then
+      if x >= '\8354' then
+        if x >= '\8372' then
+          if x >= '\8457' then
+            case x of
+                '\8457' -> "\162"
+                '\8482' -> "\168"
+                _ -> [x]
+            else
+            case x of
+                '\8372' -> "\255"
+                '\8451' -> "\165"
+                _ -> [x]
+          else
+          if x <= '\8355' then
+            case x of
+                '\8354' -> "\252"
+                '\8355' -> "\253"
+                _ -> [x]
+            else
+            case x of
+                '\8356' -> "\254"
+                '\8364' -> "\181"
+                _ -> [x]
+        else
+        if x <= '\8263' then
+          if x >= '\8233' then
+            case x of
+                '\8233' -> "\246"
+                '\8263' -> "\247"
+                _ -> [x]
+            else
+            case x of
+                '\8212' -> "M"
+                '\8230' -> "..."
+                '\8232' -> "\245"
+                _ -> [x]
+          else
+          if x <= '\8265' then
+            case x of
+                '\8264' -> "\248"
+                '\8265' -> "\249"
+                _ -> [x]
+            else
+            case x of
+                '\8352' -> "\250"
+                '\8353' -> "\251"
+                _ -> [x]
+      else
+      if x <= '\8202' then
+        if x >= '\8199' then
+          if x >= '\8201' then
+            case x of
+                '\8201' -> "\232"
+                '\8202' -> "\233"
+                _ -> [x]
+            else
+            case x of
+                '\8199' -> "\230"
+                '\8200' -> "\231"
+                _ -> [x]
+          else
+          if x <= '\8196' then
+            case x of
+                '\8195' -> "\226"
+                '\8196' -> "\227"
+                _ -> [x]
+            else
+            case x of
+                '\8197' -> "\228"
+                '\8198' -> "\229"
+                _ -> [x]
+        else
+        if x <= '\8206' then
+          if x >= '\8205' then
+            case x of
+                '\8205' -> "\236"
+                '\8206' -> "\237"
+                _ -> [x]
+            else
+            case x of
+                '\8203' -> "\234"
+                '\8204' -> "\235"
+                _ -> [x]
+          else
+          if x <= '\8209' then
+            case x of
+                '\8207' -> "\238"
+                '\8208' -> "\239"
+                '\8209' -> "\240"
+                _ -> [x]
+            else
+            case x of
+                '\8210' -> "\241"
+                '\8211' -> "L"
+                _ -> [x]
+  | x <= '\1088' =
+    if x >= '\1080' then
+      if x >= '\1085' then
+        if x >= '\1087' then
+          case x of
+              '\1087' -> "p"
+              '\1088' -> "r"
+              _ -> [x]
+          else
+          case x of
+              '\1085' -> "n"
+              '\1086' -> "o"
+              _ -> [x]
+        else
+        if x <= '\1082' then
+          case x of
+              '\1080' -> "y"
+              '\1081' -> "j"
+              '\1082' -> "k"
+              _ -> [x]
+          else
+          case x of
+              '\1083' -> "l"
+              '\1084' -> "m"
+              _ -> [x]
+      else
+      if x <= '\1075' then
+        if x >= '\1074' then
+          case x of
+              '\1074' -> "v"
+              '\1075' -> "A"
+              _ -> [x]
+          else
+          case x of
+              '\'' -> "K"
+              '\1072' -> "a"
+              '\1073' -> "b"
+              _ -> [x]
+        else
+        if x <= '\1077' then
+          case x of
+              '\1076' -> "d"
+              '\1077' -> "e"
+              _ -> [x]
+          else
+          case x of
+              '\1078' -> "E"
+              '\1079' -> "z"
+              _ -> [x]
+  | x <= '\1097' =
+    if x >= '\1093' then
+      if x >= '\1096' then
+        case x of
+            '\1096' -> "B"
+            '\1097' -> "C"
+            _ -> [x]
+        else
+        case x of
+            '\1093' -> "h"
+            '\1094' -> "c"
+            '\1095' -> "I"
+            _ -> [x]
+      else
+      if x <= '\1090' then
+        case x of
+            '\1089' -> "s"
+            '\1090' -> "t"
+            _ -> [x]
+        else
+        case x of
+            '\1091' -> "u"
+            '\1092' -> "f"
+            _ -> [x]
+  | x <= '\1108' =
+    if x >= '\1103' then
+      case x of
+          '\1103' -> "G"
+          '\1108' -> "F"
+          _ -> [x]
+      else
+      case x of
+          '\1100' -> "q"
+          '\1102' -> "J"
+          _ -> [x]
+  | x <= '\1111' =
+    case x of
+        '\1110' -> "i"
+        '\1111' -> "D"
+        _ -> [x]
+  | otherwise =
+    case x of
+        '\1169' -> "g"
+        '\8194' -> "\225"
+        _ -> [x]
 change2BS [] = []
 
 -- | Function that converts Latin text into English-sounding letters in Ukrainian
@@ -1491,7 +1617,7 @@ numberSounds x | x >= '\x0035' =
 -- Функція, яка бере до уваги кількість пунктуаційних знаків для правильного створення пауз
 punctL :: Integer -> Integer -> String -> String -> String -> [String] -> IO ()
 punctL k t1 xs ys zs _ | k >= 10000000000 =
-  punctL1 (let r = fromIntegral k / 100000000000 in if r >= 0.1 then r - 0.014 else 0.086) t1 xs
+  punctL1 (let r = fromIntegral k / 100000000000000 in if r >= 0.1 then r - 0.014 else 0.086) t1 xs
                        | DC.isPunctuation . head $ xs =
   if k >= 1000200
     then if k >= 10000000
@@ -1586,14 +1712,14 @@ punctOpt xs | (not . null . tail $ xs) && head xs == '!' && (DC.isDigit . head .
     if head z == '\x002E'
       then let zk1 = take 3 . tail $ z in 
              let zk2 = length zk1 in case zk2 of
-                 0 -> stringToInteger z * 10000000000
-                 _ -> stringToInteger zk1 * 10^(11-zk2)
+                 0 -> stringToInteger z * 10000000000000
+                 _ -> stringToInteger zk1 * 10^(14-zk2)
       else let zk1 = take 3 . dropWithFirst (/= '\x002E') $ z in 
              let z0 = takeWhile (/= '\x002E') z in
                let zk2 = length zk1 in 
                  let zk3 = z0 ++ zk1 in case zk2 of
-                   0 -> stringToInteger z * 10000000000
-                   _ -> stringToInteger zk3 * 10^(11-zk2)             
+                   0 -> stringToInteger z * 10000000000000
+                   _ -> stringToInteger zk3 * 10^(14-zk2)             
             | otherwise = 
   sum . map (\x -> if x >= '\x003A'
     then if x >= '\x004F'
@@ -1621,7 +1747,7 @@ punctOpt xs | (not . null . tail $ xs) && head xs == '!' && (DC.isDigit . head .
 -- Функція, яка бере до уваги кількість пунктуаційних знаків для правильного створення пауз
 punctL11 :: Integer -> Integer -> String -> String -> String -> [String] -> IO ()
 punctL11 k t1 xs ys zs args | k >= 10000000000 =
-  punctL1 (let r = fromIntegral k / 100000000000 in if r >= 0.1 then r - 0.014 else 0.086) t1 xs
+  punctL1 (let r = fromIntegral k / 100000000000000 in if r >= 0.1 then r - 0.014 else 0.086) t1 xs
                             | DC.isPunctuation . head $ xs =
   if k >= 1000200
     then if k >= 10000000
@@ -2333,10 +2459,10 @@ divideConsonants xs = let y = length xs in case y of
   1 -> [xs]
   2 | (elem (snd . head $ xs) "rq" && head xs /= last xs) || (elem (snd . head $ xs) "di" && elem (snd . head . tail $ xs) "sa") -> [[head xs], tail xs] 
     | otherwise -> [xs]
-  3 | elem (snd . head $ xs) "rq" -> [[head xs], tail xs] 
-    | elem (snd . head . tail $ xs) "rq" -> [[head xs, head . tail $ xs], [last xs]] 
+  3 | (snd . head $ xs) `elem` "rq" -> [[head xs], tail xs] 
+    | (snd . head . tail $ xs) `elem` "rq" -> [[head xs, head . tail $ xs], [last xs]] 
     | otherwise -> [xs]
-  _ | elem (snd . head $ xs) "rqdi" -> [[head xs], tail xs] 
+  _ | (snd . head $ xs) `elem` "rqdi" -> [[head xs], tail xs] 
     | otherwise -> [xs]
 
 -- | Function that prepares a Ukrainian word to be divided into syllables
@@ -2386,13 +2512,84 @@ amountOfPartsForKthSyl xs k = let u = length . divideToListOfSoundGroupsAsLists 
 createSoundLChar :: Char -> (C.ByteString, Char)
 createSoundLChar x = (C.singleton x, y)
   where y | isVowelL x = 'w'
-          | or [x == '\x0076', x == '\x006A', x >= '\x006C' && x <= '\x006E', x == '\x0072'] = 'r'
-          | or [x == '\x0078', x >= '\x0057' && x <= '\x0059', x == '\x0007'] = 'q'
-          | or [x == '\x0041', x == '\x0045', x == '\x004F', x >= '\x0062' && x <= '\x0067', x == '\x0077', x == '\x007A'] = 'd'
-          | or [x == '\x0013', x >= '\x0050' && x <= '\x0055', x == '\x005E'] = 'i'
-          | or [x >= '\x0042' && x <= '\x0043', x == '\x0049', x == '\x0066', x == '\x0068', x == '\x006B', x == '\x0070', x >= '\x0073' && x <= '\x0074'] = 's'
-          | or [x == '\x000C', x >= '\x0010' && x <= '\x0012', x >= '\x0014' && x <= '\x0016', x == '\x0056', x == '\x005A'] = 'a'
-          | otherwise = '0'
+          | x <= '\x005A' = if x >= '\x0045' 
+             then if x >= '\x0056'
+                    then if x >= '\x0057' && x <= '\x0059' 
+                          then 'q'
+                          else case x of 
+                            '\x0056' -> 'a'
+                            '\x005A' -> 'a'
+                            _        -> '0'
+                    else if x <= '\x0049'
+                           then case x of
+                             '\x0045' -> 'd'
+                             '\x0049' -> 's'
+                             _        -> '0'
+                           else if x >= '\x0050'  
+                                  then 'i'
+                                  else case x of 
+                                    '\x004F' -> 'd'
+                                    _        -> '0'
+             else if x >= '\x0014'
+                    then if x >= '\x0042'
+                           then case x of
+                             '\x0042' -> 's'
+                             '\x0043' -> 's'
+                             _        -> '0'
+                           else if x <= '\x0016' 
+                                  then 'a'
+                                  else case x of 
+                                    '\x0041' -> 'd'
+                                    _        -> '0'
+                    else if x >= '\x0010'
+                           then if x <= '\x0012' 
+                                  then 'a' 
+                                  else case x of 
+                                    '\x0013' -> 'i'
+                                    _        -> '0'
+                           else case x of
+                             '\x0007' -> 'q'
+                             '\x000C' -> 'a'
+                             _        -> '0'
+          | x >= '\x005E' = if x >= '\x0070'
+             then if x >= '\x0077'
+                    then case x of
+                      '\x0077' -> 'd'
+                      '\x0078' -> 'q'
+                      '\x007A' -> 'd'
+                      _        -> '0'
+                    else if x <= '\x0072'
+                           then case x of 
+                             '\x0070' -> 's'
+                             '\x0072' -> 'r'
+                             _        -> '0'
+                           else if x == '\x0073' || x == '\x0074' 
+                                  then 's'
+                                  else case x of 
+                                    '\x0076' -> 'r'
+                                    _        -> '0'
+             else if x <= '\x0067'
+                    then if x <= '\x0064'
+                           then if x >= '\x0062' 
+                                  then 'd'
+                                  else case x of 
+                                    '\x005E' -> 'i'
+                                    _        -> '0'
+                           else case x of 
+                             '\x0066' -> 's'
+                             '\x0067' -> 'd'
+                             _        -> '0'
+                    else if x <= '\x006A'
+                           then case x of 
+                             '\x0068' -> 's'
+                             '\x006A' -> 'r'
+                             _        -> '0'
+                           else if x >= '\x006C' && x <= '\x006E' 
+                                  then 'r'
+                                  else case x of 
+                                    '\x006B' -> 's'
+                                    _        -> '0'
+          | otherwise = '0'    
 
 -- | Function that checks whether its arguments are both consonants
 -- Функція, що перевіряє, чи є обидва її аргументи приголосні
@@ -2402,14 +2599,17 @@ isSimilar x y = isConsonantL x && isConsonantL y
 -- | Function-predicate to check whether its argument is a consonant
 -- Функція-предикат, яка перевіряє, чи є її аргумент приголосним
 isConsonantL :: Char -> Bool
-isConsonantL x | x <= '\x005E' = 
-  if x <= '\x0043'
-    then or [x >= '\x0010' && x <= '\x0016', x >= '\x0041' && x <= '\x0043', x == '\x0007', x == '\x000C']
-    else or [x >= '\x004F' && x <= '\x005A', x == '\x005E', x == '\x0045', x == '\x0049']
+isConsonantL x | x <= '\x005E' = if x <= '\x0043'
+                                   then if x <= '\x0043'
+                                          then (x >= '\x0010' && x <= '\x0016') || x >= '\x0041'
+                                          else x == '\x0007' || x == '\x000C'
+                                   else if x >= '\x004F'
+                                          then x <= '\x005A'
+                                          else x == '\x005E' || (x == '\x0045' || x == '\x0049')
                | otherwise = 
   if x >= '\x0070'
-    then or [x >= '\x0070' && x<= '\x0074', x >= '\x0076' && x <= '\x0078', x == '\x007A']
-    else or [x >= '\x0062' && x <= '\x0064', x >= '\x0066' && x <= '\x0068', x >= '\x006B' && x <= '\x006E']
+    then (x >= '\x0070' && x <= '\x0078' && x /= '\x0075') || x == '\x007A'
+    else (x >= '\x0062' && x <= '\x0068' && x /= '\x0065') || (x >= '\x006B' && x <= '\x006E')
 
 -- | Function to create a list of Int that is used for dividing into syllables for words with one or more vowels
 -- Функція, щоб створити список Int, який використовується для поділу на склади для слів з одним чи більше голосним

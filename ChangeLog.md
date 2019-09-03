@@ -118,8 +118,12 @@ conditions.
 
 ## 0.3.3.0  -- 2019-09-02
 
-* Twelfth version. You can now add volatile pauses by using a " !Double " pattern
+* Twelfth version. You can now add voluntary pauses by using a " !Double " pattern
 where Double means a normally written Double numeral with (or without) a dot. 
-Extended documentation and used a module declaration.
+Made documentation more complete and used a module declaration.
 
+## 0.3.4.0  -- 2019-09-03
+
+* Twelfth version revised A. Made some optimizations for predicate functions, 
+filtering and voluntary pause creation. 
 
