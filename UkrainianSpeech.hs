@@ -89,11 +89,7 @@ endOfExecutable :: String -> IO String
 endOfExecutable ys = do
                        xs <- findExecutable ys
                        if isJust xs 
-                         then do
-                                zs <- findExecutable (ys ++ ".exe")
-                                if isNothing zs
-                                  then return ""
-                                  else error ("Please, use only one file as executable " ++ ys ++ "!\n")
+                         then return ""
                          else do
                                 zs <- findExecutable (ys ++ ".exe")
                                 if isJust zs
